@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/appearance_controller.dart';
+import '../../core/theme/appearance_menu.dart';
 import 'session_controller.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({required this.session, super.key});
+  const LoginScreen({required this.session, required this.appearance, super.key});
 
   final SessionController session;
+  final AppearanceController appearance;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -37,7 +40,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final secondary = Theme.of(context).colorScheme.onSurfaceVariant;
     return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          AppearanceMenuButton(controller: widget.appearance),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -92,10 +105,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       label: const Text('Entrar a VITI'),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'La sesión se guarda de forma segura en este dispositivo. El código secreto solo se usa para la cuenta Superadmin.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: Colors.white60),
+                      style: TextStyle(fontSize: 12, color: secondary),
                     ),
                   ],
                 ),
