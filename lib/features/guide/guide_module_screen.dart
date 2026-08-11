@@ -58,6 +58,7 @@ class _GuideModuleScreenState extends State<GuideModuleScreen> {
   }
 
   Future<void> _resolveActiveStep() async {
+    setState(() => loading = true);
     try {
       if (client) {
         final requests = await widget.repository.clientRequests();
@@ -157,12 +158,12 @@ class _StepCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Card(
-      color: active ? scheme.primaryContainer.withValues(alpha: .45) : null,
+      color: active ? scheme.primaryContainer.withAlpha(115) : null,
       shape: RoundedRectangleBorder(side: BorderSide(color: active ? scheme.primary : Colors.white12), borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          CircleAvatar(backgroundColor: done ? Colors.green.withValues(alpha: .18) : active ? scheme.primaryContainer : null, child: Icon(done ? Icons.check : step.icon, color: done ? Colors.greenAccent : active ? scheme.primary : null)),
+          CircleAvatar(backgroundColor: done ? Colors.green.withAlpha(46) : active ? scheme.primaryContainer : null, child: Icon(done ? Icons.check : step.icon, color: done ? Colors.greenAccent : active ? scheme.primary : null)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Paso $number', style: const TextStyle(fontSize: 11, color: Colors.white54)), const SizedBox(height: 2), Text(step.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), const SizedBox(height: 5), Text(step.text, style: const TextStyle(color: Colors.white60))])),
           if (active) const Chip(label: Text('Ahora')),
