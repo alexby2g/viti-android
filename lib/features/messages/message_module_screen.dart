@@ -5,10 +5,11 @@ import '../../core/api/api_client.dart';
 import '../data/viti_repository.dart';
 
 class MessageModuleScreen extends StatefulWidget {
-  const MessageModuleScreen({required this.repository, required this.admin, super.key});
+  const MessageModuleScreen({required this.repository, this.admin = false, this.support = false, super.key});
 
   final VitiRepository repository;
   final bool admin;
+  final bool support;
 
   @override
   State<MessageModuleScreen> createState() => _MessageModuleScreenState();
@@ -36,19 +37,26 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
     super.dispose();
   }
 
-  Future<void> _loadInbox({bool selectFirst = false}) async {
+  Future<List<Map<String, dynamic>>> _fetchInbox() {
+    if (widget.support) return widget.repository.supportInbox();
+    return widget.admin ? widget.repository.adminInbox() : widget.repository.clientInbox();
+  }
+
+  Future<Map<String, dynamic>> _fetchConversation(int id) {
+    if (widget.support) return widget.repository.supportConversation(id);
+    return widget.admin ? widget.repository.adminConversation(id) : widget.repository.clientConversation(id);
+  }
+
+  Future<void> _loadInbox() async {
     setState(() {
       loading = true;
       error = null;
     });
     try {
-      rows = widget.admin ? await widget.repository.adminInbox() : await widget.repository.clientInbox();
+      rows = await _fetchInbox();
       if (selectedId != null && !rows.any((row) => _int(row['id']) == selectedId)) {
         selectedId = null;
         current = null;
-      }
-      if (selectFirst && selectedId == null && rows.isNotEmpty) {
-        await _select(_int(rows.first['id']));
       }
     } on ApiException catch (exception) {
       error = exception.message;
@@ -67,7 +75,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
       error = null;
     });
     try {
-      current = widget.admin ? await widget.repository.adminConversation(id) : await widget.repository.clientConversation(id);
+      current = await _fetchConversation(id);
     } on ApiException catch (exception) {
       error = exception.message;
     } finally {
@@ -80,7 +88,9 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
     if (message.isEmpty || selectedId == null || sending) return;
     setState(() => sending = true);
     try {
-      if (widget.admin) {
+      if (widget.support) {
+        await widget.repository.sendSupportMessage(selectedId!, message);
+      } else if (widget.admin) {
         await widget.repository.sendAdminMessage(selectedId!, message);
       } else {
         await widget.repository.sendClientMessage(selectedId!, message);
@@ -110,16 +120,18 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
     }
     final extension = (file.extension ?? '').toLowerCase();
     final image = const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension);
-    final maxBytes = image ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+    final maxBytes = widget.support ? 10 * 1024 * 1024 : image ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxBytes) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(image ? 'La imagen no puede superar 5 MB.' : 'El documento no puede superar 10 MB.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(maxBytes == 5 * 1024 * 1024 ? 'La imagen no puede superar 5 MB.' : 'El archivo no puede superar 10 MB.')));
       return;
     }
 
     setState(() => sending = true);
     try {
       final message = reply.text.trim();
-      if (widget.admin) {
+      if (widget.support) {
+        await widget.repository.sendSupportFile(selectedId!, filePath: file.path!, fileName: file.name, message: message);
+      } else if (widget.admin) {
         if (image) {
           await widget.repository.sendAdminImage(selectedId!, filePath: file.path!, fileName: file.name, message: message);
         } else {
@@ -144,7 +156,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
 
   Future<void> _refreshInboxSilently() async {
     try {
-      rows = widget.admin ? await widget.repository.adminInbox() : await widget.repository.clientInbox();
+      rows = await _fetchInbox();
       if (mounted) setState(() {});
     } catch (_) {}
   }
@@ -157,13 +169,14 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 900;
-        if (desktop) {
-          return Row(children: [SizedBox(width: 330, child: _inbox()), const VerticalDivider(width: 1), Expanded(child: _conversation())]);
-        }
+        if (desktop) return Row(children: [SizedBox(width: 330, child: _inbox()), const VerticalDivider(width: 1), Expanded(child: _conversation())]);
         return selectedId == null ? _inbox() : _conversation(mobile: true);
       },
     );
   }
+
+  String get _title => widget.support ? 'Mensajes asignados' : widget.admin ? 'Atención VITI' : 'Mi buzón';
+  String get _subtitle => widget.support ? 'Solo conversaciones delegadas a tu cuenta.' : widget.admin ? 'Conversaciones privadas autorizadas.' : 'Mensajes y documentos con AGR Studio.';
 
   Widget _inbox() {
     return RefreshIndicator(
@@ -171,9 +184,9 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(widget.admin ? 'Atención VITI' : 'Mi buzón', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+          Text(_title, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
-          Text(widget.admin ? 'Conversaciones privadas autorizadas.' : 'Mensajes y documentos con AGR Studio.', style: const TextStyle(color: Colors.white60)),
+          Text(_subtitle, style: const TextStyle(color: Colors.white60)),
           const SizedBox(height: 16),
           if (rows.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('Aún no hay conversaciones.'))),
           for (final row in rows)
@@ -184,7 +197,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
                 leading: const CircleAvatar(child: Icon(Icons.forum_outlined)),
                 title: Text(_contactName(row)),
                 subtitle: Text('${_text(row['asunto'], 'Conversación VITI')}\n${_preview(row)}', maxLines: 2, overflow: TextOverflow.ellipsis),
-                trailing: _int(row['no_leidos']) > 0 ? Badge(label: Text('${row['no_leidos']}')) : const Icon(Icons.chevron_right),
+                trailing: _int(row['no_leidos']) > 0 ? CircleAvatar(radius: 13, child: Text('${row['no_leidos']}', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_right),
                 onTap: () => _select(_int(row['id'])),
               ),
             ),
@@ -218,12 +231,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
         Expanded(
           child: messages.isEmpty
               ? const Center(child: Text('Todavía no hay mensajes en esta conversación.'))
-              : ListView.builder(
-                  reverse: false,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) => _messageBubble(messages[index]),
-                ),
+              : ListView.builder(padding: const EdgeInsets.all(16), itemCount: messages.length, itemBuilder: (context, index) => _messageBubble(messages[index])),
         ),
         const Divider(height: 1),
         SafeArea(
@@ -245,7 +253,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
   Widget _messageBubble(Map<String, dynamic> message) {
     final user = _map(message['usuario']);
     final role = _text(user['rol'], '');
-    final mine = widget.admin ? role != 'cliente' : role == 'cliente';
+    final mine = message['es_mio'] == true || (widget.admin ? role != 'cliente' : widget.support ? role == 'soporte' : role == 'cliente');
     final fileName = _text(message['archivo_nombre'], '');
     final text = _text(message['mensaje'], '');
     return Align(
