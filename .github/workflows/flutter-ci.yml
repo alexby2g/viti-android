@@ -1,0 +1,44 @@
+name: Flutter CI
+
+on:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android host
+        run: flutter create --platforms=android --org studio.agr --project-name viti .
+      - name: Android minimum SDK
+        run: python - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/build.gradle.kts')
+          if p.exists():
+              s=p.read_text()
+              p.write_text(s.replace('minSdk = flutter.minSdkVersion','minSdk = 23'))
+          PY
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+      - name: Compile Android smoke APK
+        run: flutter build apk --debug --dart-define=VITI_API_URL=https://viti-core-api-alexby2g.onrender.com/api/v1
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter config --enable-windows-desktop
+      - run: flutter create --platforms=windows --org studio.agr --project-name viti .
+      - run: flutter pub get
+      - name: Compile Windows smoke build
+        run: flutter build windows --debug --dart-define=VITI_API_URL=https://viti-core-api-alexby2g.onrender.com/api/v1
