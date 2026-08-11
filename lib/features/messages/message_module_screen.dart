@@ -107,7 +107,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
 
   Future<void> _attach() async {
     if (selectedId == null || sending) return;
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowMultiple: false,
       allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
