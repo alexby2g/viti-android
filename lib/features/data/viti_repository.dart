@@ -85,6 +85,31 @@ class VitiRepository {
   Future<List<Map<String, dynamic>>> adminRequests() async => _list((await _api.getJson('/solicitudes?per_page=100'))['data']);
   Future<List<Map<String, dynamic>>> adminProjects() async => _list((await _api.getJson('/proyectos?per_page=100'))['data']);
   Future<List<Map<String, dynamic>>> adminApps() async => _list((await _api.getJson('/aplicaciones?per_page=100'))['data']);
+  Future<Map<String, dynamic>> adminCompany(int id) async => _map((await _api.getJson('/empresas/$id'))['data']);
+  Future<Map<String, dynamic>> adminRequest(int id) async => _map((await _api.getJson('/solicitudes/$id'))['data']);
+  Future<Map<String, dynamic>> adminProject(int id) async => _map((await _api.getJson('/proyectos/$id'))['data']);
+  Future<Map<String, dynamic>> adminApp(int id) async => _map((await _api.getJson('/aplicaciones/$id'))['data']);
+
+  Future<Map<String, dynamic>> addProjectProgress({
+    required int projectId,
+    required String phase,
+    required String title,
+    required int progress,
+    String? area,
+    String? description,
+    bool visibleClient = true,
+  }) async {
+    final response = await _api.postJson('/proyectos/$projectId/avances', <String, dynamic>{
+      'fase': phase,
+      'titulo': title,
+      'progreso': progress,
+      'visible_cliente': visibleClient,
+      if (area != null && area.isNotEmpty) 'area': area,
+      if (description != null && description.trim().isNotEmpty) 'descripcion': description.trim(),
+    });
+    return _map(response['data']);
+  }
+
   Future<Map<String, dynamic>> adminBilling() async => _map((await _api.getJson('/pagos'))['data']);
   Future<List<Map<String, dynamic>>> adminInbox() async => _list((await _api.getJson('/buzon?per_page=100'))['data']);
   Future<Map<String, dynamic>> adminConversation(int id) async => _map((await _api.getJson('/buzon/$id'))['data']);
