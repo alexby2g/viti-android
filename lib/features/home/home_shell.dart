@@ -111,6 +111,12 @@ class _HomeShellState extends State<HomeShell> {
     ];
   }
 
+  void _navigateTo(String key) {
+    final index = destinations.indexWhere((item) => item.key == key);
+    if (index < 0 || index == selected) return;
+    setState(() => selected = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = destinations;
@@ -120,9 +126,13 @@ class _HomeShellState extends State<HomeShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 900;
+        final extendedRail = constraints.maxWidth >= 1180;
         return Scaffold(
           appBar: AppBar(
-            title: Text(desktop ? 'VITI · AGR Studio' : current.label),
+            titleSpacing: 18,
+            title: desktop
+                ? Row(children: [const _TopBrand(), const SizedBox(width: 18), Container(width: 1, height: 24, color: Colors.white12), const SizedBox(width: 18), Text(current.label, style: const TextStyle(fontWeight: FontWeight.w700))])
+                : Text(current.label),
             actions: [
               if (isClient && clientCompanies.isNotEmpty)
                 PopupMenuButton<int>(
@@ -155,6 +165,7 @@ class _HomeShellState extends State<HomeShell> {
                 onPressed: widget.session.busy ? null : widget.session.logout,
                 icon: const Icon(Icons.logout),
               ),
+              const SizedBox(width: 6),
             ],
           ),
           drawer: desktop ? null : Drawer(child: _mobileMenu(items)),
@@ -163,12 +174,13 @@ class _HomeShellState extends State<HomeShell> {
                   children: [
                     NavigationRail(
                       selectedIndex: selected,
-                      extended: constraints.maxWidth >= 1180,
-                      labelType: constraints.maxWidth >= 1180 ? NavigationRailLabelType.none : NavigationRailLabelType.selected,
+                      extended: extendedRail,
+                      minExtendedWidth: 230,
+                      labelType: extendedRail ? NavigationRailLabelType.none : NavigationRailLabelType.selected,
                       onDestinationSelected: (value) => setState(() => selected = value),
-                      leading: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 18),
-                        child: CircleAvatar(radius: 24, child: Text('V', style: TextStyle(fontWeight: FontWeight.w900))),
+                      leading: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 18, 10, 16),
+                        child: _SideBrand(compact: !extendedRail),
                       ),
                       destinations: [
                         for (final item in items)
@@ -197,10 +209,11 @@ class _HomeShellState extends State<HomeShell> {
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          const Padding(padding: EdgeInsets.fromLTRB(8, 8, 8, 16), child: _SideBrand(compact: false)),
           ListTile(
-            leading: const CircleAvatar(child: Text('V', style: TextStyle(fontWeight: FontWeight.w900))),
-            title: const Text('AGR Studio', style: TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Text('VITI · ${widget.session.user?.role ?? 'usuario'}'),
+            leading: const Icon(Icons.person_outline),
+            title: Text(widget.session.user?.name ?? 'Usuario VITI', style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(_text(widget.session.user?.role, 'usuario')),
           ),
           if (isClient && clientCompanies.isNotEmpty)
             ListTile(leading: const Icon(Icons.business_outlined), title: Text(_activeCompanyName()), subtitle: const Text('Empresa activa')),
@@ -234,7 +247,12 @@ class _HomeShellState extends State<HomeShell> {
 
     if (role == 'administrador' || role == 'superadmin') {
       if (const {'inicio', 'empresas', 'solicitudes', 'proyectos', 'aplicaciones'}.contains(current.key)) {
-        return AdminModuleScreen(repository: widget.repository, module: current.key);
+        return AdminModuleScreen(
+          repository: widget.repository,
+          module: current.key,
+          superadmin: role == 'superadmin',
+          onNavigate: _navigateTo,
+        );
       }
       if (role == 'superadmin' && current.key == 'pagos') {
         return PaymentModuleScreen(repository: widget.repository, admin: true);
@@ -254,6 +272,54 @@ class _HomeShellState extends State<HomeShell> {
       return MessageModuleScreen(repository: widget.repository, admin: false);
     }
     return const _NativePlaceholder(title: 'VITI', text: 'Este módulo todavía está en integración nativa.');
+  }
+}
+
+class _TopBrand extends StatelessWidget {
+  const _TopBrand();
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(border: Border.all(color: Colors.white24), borderRadius: BorderRadius.circular(9)),
+            child: const Text('AGR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .6)),
+          ),
+          const SizedBox(width: 9),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Text('VITI', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: 1.1)), Text('AGR STUDIO', style: TextStyle(fontSize: 8, color: Colors.white54, letterSpacing: 1.2))]),
+        ],
+      );
+}
+
+class _SideBrand extends StatelessWidget {
+  const _SideBrand({required this.compact});
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = Container(
+      width: 46,
+      height: 46,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white24),
+        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Theme.of(context).colorScheme.surfaceContainerHighest, Theme.of(context).colorScheme.surface]),
+      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Text('AGR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: .8)),
+        Container(width: 24, height: 2, margin: const EdgeInsets.only(top: 3), color: Theme.of(context).colorScheme.primary),
+      ]),
+    );
+    if (compact) return mark;
+    return SizedBox(
+      width: 200,
+      child: Row(children: [mark, const SizedBox(width: 11), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('AGR STUDIO', style: TextStyle(fontSize: 10, color: Colors.white54, fontWeight: FontWeight.w700, letterSpacing: 1.1)), Text('VITI', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.5)), Text('Plataforma de gestión digital', style: TextStyle(fontSize: 10, color: Colors.white38))]))]),
+    );
   }
 }
 
