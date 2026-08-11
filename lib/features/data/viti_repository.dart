@@ -53,7 +53,10 @@ class VitiRepository {
     return _list(response['data']);
   }
 
-  Future<Map<String, dynamic>> supportSummary() => _api.getJson('/soporte/resumen');
+  Future<Map<String, dynamic>> supportSummary() async {
+    final response = await _api.getJson('/soporte/resumen');
+    return _map(response['data']);
+  }
 
   static Map<String, dynamic> _map(dynamic value) {
     if (value is Map<String, dynamic>) return value;
