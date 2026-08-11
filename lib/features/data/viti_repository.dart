@@ -123,6 +123,77 @@ class VitiRepository {
   Future<void> sendSupportMessage(int id, String message) async => _api.postJson('/soporte/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
   Future<void> sendSupportFile(int id, {required String filePath, required String fileName, String message = ''}) async => _api.postMultipart('/soporte/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
 
+  String _businessAppBase(String key) {
+    switch (key) {
+      case 'servicio-tecnico':
+        return '/mi/apps/servicio-tecnico';
+      case 'electrofrio':
+        return '/mi/apps/electrofrio';
+      default:
+        throw const ApiException('Esta VITI App todavía no tiene integración nativa.');
+    }
+  }
+
+  Future<Map<String, dynamic>> businessAppSummary(String key) async {
+    await _ensureClientCompany();
+    return _map((await _api.getJson('${_businessAppBase(key)}/resumen'))['data']);
+  }
+
+  Future<List<Map<String, dynamic>>> businessAppList(String key, String resource) async {
+    await _ensureClientCompany();
+    return _list((await _api.getJson('${_businessAppBase(key)}/$resource'))['data']);
+  }
+
+  Future<Map<String, dynamic>> createTechnicalClient({required String name, String? phone, String? whatsapp, String? address, String? notes}) async {
+    await _ensureClientCompany();
+    final response = await _api.postJson('/mi/apps/servicio-tecnico/clientes', <String, dynamic>{
+      'nombre': name.trim(),
+      if (phone != null && phone.trim().isNotEmpty) 'telefono': phone.trim(),
+      if (whatsapp != null && whatsapp.trim().isNotEmpty) 'whatsapp': whatsapp.trim(),
+      if (address != null && address.trim().isNotEmpty) 'direccion': address.trim(),
+      if (notes != null && notes.trim().isNotEmpty) 'observaciones': notes.trim(),
+      'activo': true,
+    });
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> createTechnicalOrder({
+    required int clientId,
+    int? equipmentId,
+    int? technicianId,
+    required String receptionDate,
+    String? scheduledDate,
+    String? scheduledTime,
+    required String priority,
+    required String reportedProblem,
+    double? serviceCost,
+  }) async {
+    await _ensureClientCompany();
+    final response = await _api.postJson('/mi/apps/servicio-tecnico/ordenes', <String, dynamic>{
+      'cliente_id': clientId,
+      if (equipmentId != null && equipmentId > 0) 'equipo_id': equipmentId,
+      if (technicianId != null && technicianId > 0) 'tecnico_id': technicianId,
+      'fecha_recepcion': receptionDate,
+      if (scheduledDate != null && scheduledDate.isNotEmpty) 'fecha_programada': scheduledDate,
+      if (scheduledTime != null && scheduledTime.isNotEmpty) 'hora_programada': scheduledTime,
+      'prioridad': priority,
+      'problema_reportado': reportedProblem.trim(),
+      if (serviceCost != null) 'costo_servicio': serviceCost,
+      'descuento': 0,
+    });
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> registerTechnicalPayment({required int orderId, required double amount, required String method, String? reference}) async {
+    await _ensureClientCompany();
+    final response = await _api.postJson('/mi/apps/servicio-tecnico/ordenes/$orderId/pagos', <String, dynamic>{
+      'monto': amount,
+      'metodo': method,
+      if (reference != null && reference.trim().isNotEmpty) 'referencia': reference.trim(),
+    });
+    return _map(response['data']);
+  }
+
   static Map<String, dynamic> _map(dynamic value) => value is Map<String, dynamic> ? value : <String, dynamic>{};
   static List<Map<String, dynamic>> _list(dynamic value) => value is List ? value.whereType<Map<String, dynamic>>().toList(growable: false) : const <Map<String, dynamic>>[];
   static int _int(dynamic value) => int.tryParse('${value ?? 0}') ?? 0;
