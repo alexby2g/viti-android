@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 
+import '../admin/admin_module_screen.dart';
 import '../auth/session_controller.dart';
+import '../client/client_module_screen.dart';
+import '../data/viti_repository.dart';
+import '../support/support_module_screen.dart';
 
 class _Destination {
-  const _Destination(this.label, this.icon, this.description);
+  const _Destination(this.key, this.label, this.icon);
 
+  final String key;
   final String label;
   final IconData icon;
-  final String description;
 }
 
 class HomeShell extends StatefulWidget {
-  const HomeShell({required this.session, super.key});
+  const HomeShell({required this.session, required this.repository, super.key});
 
   final SessionController session;
+  final VitiRepository repository;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -26,31 +31,31 @@ class _HomeShellState extends State<HomeShell> {
     final role = widget.session.user?.role ?? 'cliente';
     if (role == 'soporte') {
       return const [
-        _Destination('Mi trabajo', Icons.support_agent, 'Solicitudes, proyectos y casos asignados a tu cuenta.'),
-        _Destination('Mensajes', Icons.forum_outlined, 'Conversaciones que AGR Studio te haya delegado.'),
-        _Destination('Guía', Icons.route_outlined, 'Pasos y responsabilidades del soporte interno.'),
+        _Destination('trabajo', 'Mi trabajo', Icons.support_agent),
+        _Destination('mensajes', 'Mensajes', Icons.forum_outlined),
+        _Destination('guia', 'Guía', Icons.route_outlined),
       ];
     }
     if (role == 'administrador' || role == 'superadmin') {
       return const [
-        _Destination('Inicio', Icons.dashboard_outlined, 'Resumen operativo de AGR Studio y VITI.'),
-        _Destination('Empresas', Icons.business_outlined, 'Clientes y empresas registradas en la plataforma.'),
-        _Destination('Solicitudes', Icons.assignment_outlined, 'Solicitudes recibidas y su revisión.'),
-        _Destination('Proyectos', Icons.account_tree_outlined, 'Desarrollo, avances y entregas.'),
-        _Destination('Aplicaciones', Icons.apps_outlined, 'Ciclo técnico, acceso y aplicaciones entregadas.'),
-        _Destination('Pagos', Icons.payments_outlined, 'Comprobantes, saldos y suscripciones.'),
-        _Destination('Mensajes', Icons.forum_outlined, 'Buzones autorizados según tu rol.'),
-        _Destination('Guía', Icons.route_outlined, 'Flujo operativo para administrar VITI.'),
+        _Destination('inicio', 'Inicio', Icons.dashboard_outlined),
+        _Destination('empresas', 'Empresas', Icons.business_outlined),
+        _Destination('solicitudes', 'Solicitudes', Icons.assignment_outlined),
+        _Destination('proyectos', 'Proyectos', Icons.account_tree_outlined),
+        _Destination('aplicaciones', 'Aplicaciones', Icons.apps_outlined),
+        _Destination('pagos', 'Pagos', Icons.payments_outlined),
+        _Destination('mensajes', 'Mensajes', Icons.forum_outlined),
+        _Destination('guia', 'Guía', Icons.route_outlined),
       ];
     }
     return const [
-      _Destination('Inicio', Icons.home_outlined, 'Tu espacio VITI y el estado general de tu cuenta.'),
-      _Destination('Solicitudes', Icons.assignment_outlined, 'Crea y consulta solicitudes independientes.'),
-      _Destination('Proyecto', Icons.account_tree_outlined, 'Avances, fechas y archivos del proyecto.'),
-      _Destination('Aplicaciones', Icons.apps_outlined, 'Sistemas habilitados para tu empresa.'),
-      _Destination('Pagos', Icons.payments_outlined, 'Comprobantes y estado de pagos.'),
-      _Destination('Mensajes', Icons.forum_outlined, 'Habla con AGR Studio y comparte documentos.'),
-      _Destination('Guía', Icons.route_outlined, 'Conoce los pasos desde la solicitud hasta la entrega.'),
+      _Destination('inicio', 'Inicio', Icons.home_outlined),
+      _Destination('solicitudes', 'Solicitudes', Icons.assignment_outlined),
+      _Destination('proyecto', 'Proyecto', Icons.account_tree_outlined),
+      _Destination('aplicaciones', 'Aplicaciones', Icons.apps_outlined),
+      _Destination('pagos', 'Pagos', Icons.payments_outlined),
+      _Destination('mensajes', 'Mensajes', Icons.forum_outlined),
+      _Destination('guia', 'Guía', Icons.route_outlined),
     ];
   }
 
@@ -67,11 +72,16 @@ class _HomeShellState extends State<HomeShell> {
           appBar: AppBar(
             title: Text(desktop ? 'VITI · AGR Studio' : current.label),
             actions: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Center(child: Text(widget.session.user?.name ?? 'VITI')),
+              if (desktop)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Center(child: Text(widget.session.user?.name ?? 'VITI')),
+                ),
+              IconButton(
+                tooltip: 'Cerrar sesión',
+                onPressed: widget.session.busy ? null : widget.session.logout,
+                icon: const Icon(Icons.logout),
               ),
-              IconButton(onPressed: widget.session.busy ? null : widget.session.logout, icon: const Icon(Icons.logout)),
             ],
           ),
           drawer: desktop ? null : Drawer(child: _mobileMenu(items)),
@@ -81,9 +91,15 @@ class _HomeShellState extends State<HomeShell> {
                     NavigationRail(
                       selectedIndex: selected,
                       extended: constraints.maxWidth >= 1180,
+                      labelType: constraints.maxWidth >= 1180 ? NavigationRailLabelType.none : NavigationRailLabelType.selected,
                       onDestinationSelected: (value) => setState(() => selected = value),
+                      leading: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 18),
+                        child: CircleAvatar(radius: 24, child: Text('V', style: TextStyle(fontWeight: FontWeight.w900))),
+                      ),
                       destinations: [
-                        for (final item in items) NavigationRailDestination(icon: Icon(item.icon), label: Text(item.label)),
+                        for (final item in items)
+                          NavigationRailDestination(icon: Icon(item.icon), selectedIcon: Icon(item.icon), label: Text(item.label)),
                       ],
                     ),
                     const VerticalDivider(width: 1),
@@ -101,7 +117,11 @@ class _HomeShellState extends State<HomeShell> {
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          const ListTile(title: Text('AGR Studio', style: TextStyle(fontWeight: FontWeight.w800)), subtitle: Text('VITI')),
+          ListTile(
+            leading: const CircleAvatar(child: Text('V', style: TextStyle(fontWeight: FontWeight.w900))),
+            title: const Text('AGR Studio', style: TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: Text('VITI · ${widget.session.user?.role ?? 'usuario'}'),
+          ),
           const Divider(),
           for (var index = 0; index < items.length; index++)
             ListTile(
@@ -119,58 +139,71 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Widget _content(_Destination current) {
-    final user = widget.session.user;
-    return SingleChildScrollView(
+    final role = widget.session.user?.role ?? 'cliente';
+    if (role == 'soporte') {
+      if (current.key == 'trabajo' || current.key == 'mensajes') {
+        return SupportModuleScreen(repository: widget.repository, module: current.key);
+      }
+      return const _NativePlaceholder(title: 'Guía de soporte', text: 'La guía interactiva se integrará aquí con el mismo flujo disponible en VITI Web.');
+    }
+
+    if (role == 'administrador' || role == 'superadmin') {
+      if (const {'inicio', 'empresas', 'solicitudes', 'proyectos', 'aplicaciones'}.contains(current.key)) {
+        return AdminModuleScreen(repository: widget.repository, module: current.key);
+      }
+      return _NativePlaceholder(
+        title: current.label,
+        text: current.key == 'pagos'
+            ? 'El siguiente bloque conectará comprobantes, saldos y suscripciones.'
+            : current.key == 'mensajes'
+                ? 'El siguiente bloque conectará conversaciones, archivos y documentos.'
+                : 'La guía interactiva de administración se integrará en esta vista.',
+      );
+    }
+
+    if (const {'inicio', 'solicitudes', 'proyecto', 'aplicaciones'}.contains(current.key)) {
+      return ClientModuleScreen(repository: widget.repository, module: current.key);
+    }
+    return _NativePlaceholder(
+      title: current.label,
+      text: current.key == 'pagos'
+          ? 'El siguiente bloque conectará tus pagos y comprobantes.'
+          : current.key == 'mensajes'
+              ? 'El siguiente bloque conectará el buzón y los documentos.'
+              : 'La guía interactiva de empresa se integrará en esta vista.',
+    );
+  }
+}
+
+class _NativePlaceholder extends StatelessWidget {
+  const _NativePlaceholder({required this.title, required this.text});
+
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
       padding: const EdgeInsets.all(24),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(current.label, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 6),
-              Text(current.description, style: const TextStyle(color: Colors.white60)),
-              const SizedBox(height: 24),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(22),
-                  child: Row(
-                    children: [
-                      const CircleAvatar(radius: 25, child: Icon(Icons.verified_user_outlined)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(user?.name ?? 'Usuario VITI', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                            Text('Rol: ${user?.role ?? 'sin definir'} · API VITI conectada', style: const TextStyle(color: Colors.white60)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(22),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Base nativa activa', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                      SizedBox(height: 8),
-                      Text('Esta primera fase ya comparte autenticación y permisos con VITI Web. Los módulos se irán conectando al mismo API sin duplicar la lógica de negocio.'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+      children: [
+        Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.construction, size: 34),
+                const SizedBox(height: 12),
+                Text(text),
+                const SizedBox(height: 8),
+                const Text('La versión Android y la versión Windows usan esta misma pantalla Flutter y la misma API VITI.', style: TextStyle(color: Colors.white60)),
+              ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
