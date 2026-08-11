@@ -369,7 +369,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
                 module = 'clientes';
                 await _load();
               } on ApiException catch (exception) {
-                if (dialogContext.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+                if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(exception.message)));
               }
             },
             child: const Text('Guardar'),
@@ -464,7 +464,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
                     module = 'ordenes';
                     await _load();
                   } on ApiException catch (exception) {
-                    if (dialogContext.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+                    if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(exception.message)));
                   }
                 },
                 icon: const Icon(Icons.add_task),
@@ -513,7 +513,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
                   module = 'pagos';
                   await _load();
                 } on ApiException catch (exception) {
-                  if (dialogContext.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+                  if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(exception.message)));
                 }
               },
               child: const Text('Registrar'),
