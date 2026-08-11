@@ -94,7 +94,7 @@ class VitiRepository {
     required int projectId,
     required String phase,
     required String title,
-    required int progress,
+    required num progress,
     String? area,
     String? description,
     bool visibleClient = true,
@@ -102,7 +102,7 @@ class VitiRepository {
     final response = await _api.postJson('/proyectos/$projectId/avances', <String, dynamic>{
       'fase': phase,
       'titulo': title,
-      'progreso': progress,
+      'progreso': progress.toInt(),
       'visible_cliente': visibleClient,
       if (area != null && area.isNotEmpty) 'area': area,
       if (description != null && description.trim().isNotEmpty) 'descripcion': description.trim(),
