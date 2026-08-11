@@ -43,7 +43,7 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
   }
 
   Future<PlatformFile?> _pickProof() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowMultiple: false,
       allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
