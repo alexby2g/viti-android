@@ -4,6 +4,8 @@ import '../admin/admin_module_screen.dart';
 import '../auth/session_controller.dart';
 import '../client/client_module_screen.dart';
 import '../data/viti_repository.dart';
+import '../messages/message_module_screen.dart';
+import '../payments/payment_module_screen.dart';
 import '../support/support_module_screen.dart';
 
 class _Destination {
@@ -36,7 +38,7 @@ class _HomeShellState extends State<HomeShell> {
         _Destination('guia', 'Guía', Icons.route_outlined),
       ];
     }
-    if (role == 'administrador' || role == 'superadmin') {
+    if (role == 'superadmin') {
       return const [
         _Destination('inicio', 'Inicio', Icons.dashboard_outlined),
         _Destination('empresas', 'Empresas', Icons.business_outlined),
@@ -45,6 +47,16 @@ class _HomeShellState extends State<HomeShell> {
         _Destination('aplicaciones', 'Aplicaciones', Icons.apps_outlined),
         _Destination('pagos', 'Pagos', Icons.payments_outlined),
         _Destination('mensajes', 'Mensajes', Icons.forum_outlined),
+        _Destination('guia', 'Guía', Icons.route_outlined),
+      ];
+    }
+    if (role == 'administrador') {
+      return const [
+        _Destination('inicio', 'Inicio', Icons.dashboard_outlined),
+        _Destination('empresas', 'Empresas', Icons.business_outlined),
+        _Destination('solicitudes', 'Solicitudes', Icons.assignment_outlined),
+        _Destination('proyectos', 'Proyectos', Icons.account_tree_outlined),
+        _Destination('aplicaciones', 'Aplicaciones', Icons.apps_outlined),
         _Destination('guia', 'Guía', Icons.route_outlined),
       ];
     }
@@ -151,27 +163,25 @@ class _HomeShellState extends State<HomeShell> {
       if (const {'inicio', 'empresas', 'solicitudes', 'proyectos', 'aplicaciones'}.contains(current.key)) {
         return AdminModuleScreen(repository: widget.repository, module: current.key);
       }
-      return _NativePlaceholder(
-        title: current.label,
-        text: current.key == 'pagos'
-            ? 'El siguiente bloque conectará comprobantes, saldos y suscripciones.'
-            : current.key == 'mensajes'
-                ? 'El siguiente bloque conectará conversaciones, archivos y documentos.'
-                : 'La guía interactiva de administración se integrará en esta vista.',
-      );
+      if (role == 'superadmin' && current.key == 'pagos') {
+        return PaymentModuleScreen(repository: widget.repository, admin: true);
+      }
+      if (role == 'superadmin' && current.key == 'mensajes') {
+        return MessageModuleScreen(repository: widget.repository, admin: true);
+      }
+      return const _NativePlaceholder(title: 'Guía de administración', text: 'La guía interactiva de administración se integrará en esta vista.');
     }
 
     if (const {'inicio', 'solicitudes', 'proyecto', 'aplicaciones'}.contains(current.key)) {
       return ClientModuleScreen(repository: widget.repository, module: current.key);
     }
-    return _NativePlaceholder(
-      title: current.label,
-      text: current.key == 'pagos'
-          ? 'El siguiente bloque conectará tus pagos y comprobantes.'
-          : current.key == 'mensajes'
-              ? 'El siguiente bloque conectará el buzón y los documentos.'
-              : 'La guía interactiva de empresa se integrará en esta vista.',
-    );
+    if (current.key == 'pagos') {
+      return PaymentModuleScreen(repository: widget.repository, admin: false);
+    }
+    if (current.key == 'mensajes') {
+      return MessageModuleScreen(repository: widget.repository, admin: false);
+    }
+    return const _NativePlaceholder(title: 'Guía de empresa', text: 'La guía interactiva de empresa se integrará en esta vista.');
   }
 }
 
@@ -194,11 +204,11 @@ class _NativePlaceholder extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.construction, size: 34),
+                const Icon(Icons.route_outlined, size: 34),
                 const SizedBox(height: 12),
                 Text(text),
                 const SizedBox(height: 8),
-                const Text('La versión Android y la versión Windows usan esta misma pantalla Flutter y la misma API VITI.', style: TextStyle(color: Colors.white60)),
+                const Text('Android y Windows comparten este mismo flujo Flutter y la misma API VITI.', style: TextStyle(color: Colors.white60)),
               ],
             ),
           ),
