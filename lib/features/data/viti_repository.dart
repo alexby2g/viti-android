@@ -178,7 +178,7 @@ class VitiRepository {
       if (scheduledTime != null && scheduledTime.isNotEmpty) 'hora_programada': scheduledTime,
       'prioridad': priority,
       'problema_reportado': reportedProblem.trim(),
-      if (serviceCost != null) 'costo_servicio': serviceCost,
+      'costo_servicio': serviceCost,
       'descuento': 0,
     });
     return _map(response['data']);
