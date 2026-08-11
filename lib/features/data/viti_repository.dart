@@ -37,23 +37,11 @@ class VitiRepository {
   }
 
   Future<void> sendProjectProof({required int projectId, required String amount, required String method, required String date, required String filePath, required String fileName}) async {
-    await _api.postMultipart(
-      '/mi/pagos/proyectos/$projectId/comprobante',
-      fields: <String, String>{'monto': amount, 'metodo': method, 'fecha_pago': date},
-      fileField: 'comprobante',
-      filePath: filePath,
-      fileName: fileName,
-    );
+    await _api.postMultipart('/mi/pagos/proyectos/$projectId/comprobante', fields: <String, String>{'monto': amount, 'metodo': method, 'fecha_pago': date}, fileField: 'comprobante', filePath: filePath, fileName: fileName);
   }
 
   Future<void> sendSubscriptionProof({required int subscriptionId, required String amount, required String method, required String date, required String filePath, required String fileName}) async {
-    await _api.postMultipart(
-      '/mi/pagos/suscripciones/$subscriptionId/comprobante',
-      fields: <String, String>{'monto': amount, 'metodo': method, 'fecha_pago': date},
-      fileField: 'comprobante',
-      filePath: filePath,
-      fileName: fileName,
-    );
+    await _api.postMultipart('/mi/pagos/suscripciones/$subscriptionId/comprobante', fields: <String, String>{'monto': amount, 'metodo': method, 'fecha_pago': date}, fileField: 'comprobante', filePath: filePath, fileName: fileName);
   }
 
   Future<List<Map<String, dynamic>>> clientInbox() async {
@@ -70,14 +58,12 @@ class VitiRepository {
     await _api.postJson('/mi/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
   }
 
+  Future<void> sendClientImage(int id, {required String filePath, required String fileName, String message = ''}) async {
+    await _api.postMultipart('/mi/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
+  }
+
   Future<void> sendClientDocument(int id, {required String filePath, required String fileName, String message = ''}) async {
-    await _api.postMultipart(
-      '/mi/buzon/$id/documentos',
-      fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()},
-      fileField: 'archivo',
-      filePath: filePath,
-      fileName: fileName,
-    );
+    await _api.postMultipart('/mi/buzon/$id/documentos', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
   }
 
   Future<Map<String, dynamic>> adminDashboard() => _api.getJson('/dashboard');
@@ -121,14 +107,12 @@ class VitiRepository {
     await _api.postJson('/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
   }
 
+  Future<void> sendAdminImage(int id, {required String filePath, required String fileName, String message = ''}) async {
+    await _api.postMultipart('/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
+  }
+
   Future<void> sendAdminDocument(int id, {required String filePath, required String fileName, String message = ''}) async {
-    await _api.postMultipart(
-      '/buzon/$id/documentos',
-      fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()},
-      fileField: 'archivo',
-      filePath: filePath,
-      fileName: fileName,
-    );
+    await _api.postMultipart('/buzon/$id/documentos', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
   }
 
   Future<Map<String, dynamic>> supportSummary() async {
