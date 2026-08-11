@@ -22,6 +22,9 @@ class ApiClient {
 
   Uri _uri(String path) => Uri.parse('${AppConfig.apiBaseUrl}${path.startsWith('/') ? path : '/$path'}');
 
+  Future<int?> selectedCompanyId() => _store.companyId();
+  Future<void> selectCompany(int? companyId) => _store.saveCompanyId(companyId);
+
   Future<Map<String, dynamic>> getJson(String path, {bool authenticated = true}) {
     return _send('GET', path, authenticated: authenticated);
   }
@@ -34,6 +37,18 @@ class ApiClient {
     return _send('POST', path, body: body, authenticated: authenticated);
   }
 
+  Future<Map<String, String>> _headers({required bool authenticated, bool json = true}) async {
+    final headers = <String, String>{'Accept': 'application/json'};
+    if (json) headers['Content-Type'] = 'application/json';
+    if (authenticated) {
+      final token = await _store.token();
+      if (token != null && token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+      final companyId = await _store.companyId();
+      if (companyId != null) headers['X-VITI-Empresa'] = '$companyId';
+    }
+    return headers;
+  }
+
   Future<Map<String, dynamic>> postMultipart(
     String path, {
     Map<String, String> fields = const <String, String>{},
@@ -42,9 +57,7 @@ class ApiClient {
     required String fileName,
   }) async {
     final request = http.MultipartRequest('POST', _uri(path));
-    request.headers['Accept'] = 'application/json';
-    final token = await _store.token();
-    if (token != null && token.isNotEmpty) request.headers['Authorization'] = 'Bearer $token';
+    request.headers.addAll(await _headers(authenticated: true, json: false));
     request.fields.addAll(fields);
     request.files.add(await http.MultipartFile.fromPath(fileField, filePath, filename: fileName));
     final streamed = await request.send();
@@ -58,16 +71,8 @@ class ApiClient {
     Map<String, dynamic>? body,
     required bool authenticated,
   }) async {
-    final headers = <String, String>{
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    };
-    if (authenticated) {
-      final token = await _store.token();
-      if (token != null && token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
-    }
-
-    final request = http.Request(method, _uri(path))..headers.addAll(headers);
+    final request = http.Request(method, _uri(path))
+      ..headers.addAll(await _headers(authenticated: authenticated));
     if (body != null) request.body = jsonEncode(body);
     final streamed = await _client.send(request);
     final response = await http.Response.fromStream(streamed);
