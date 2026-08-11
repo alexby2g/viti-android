@@ -263,7 +263,12 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     if (const {'inicio', 'solicitudes', 'proyecto', 'aplicaciones'}.contains(current.key)) {
-      return ClientModuleScreen(key: ValueKey('client-${current.key}-$tenantEpoch'), repository: widget.repository, module: current.key);
+      return ClientModuleScreen(
+        key: ValueKey('client-${current.key}-$tenantEpoch'),
+        repository: widget.repository,
+        module: current.key,
+        onNavigate: _navigateTo,
+      );
     }
     if (current.key == 'pagos') {
       return PaymentModuleScreen(key: ValueKey('payments-$tenantEpoch'), repository: widget.repository, admin: false);
