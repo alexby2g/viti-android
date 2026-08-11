@@ -34,6 +34,24 @@ class ApiClient {
     return _send('POST', path, body: body, authenticated: authenticated);
   }
 
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    Map<String, String> fields = const <String, String>{},
+    required String fileField,
+    required String filePath,
+    required String fileName,
+  }) async {
+    final request = http.MultipartRequest('POST', _uri(path));
+    request.headers['Accept'] = 'application/json';
+    final token = await _store.token();
+    if (token != null && token.isNotEmpty) request.headers['Authorization'] = 'Bearer $token';
+    request.fields.addAll(fields);
+    request.files.add(await http.MultipartFile.fromPath(fileField, filePath, filename: fileName));
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    return _decodeResponse(response);
+  }
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
@@ -53,7 +71,10 @@ class ApiClient {
     if (body != null) request.body = jsonEncode(body);
     final streamed = await _client.send(request);
     final response = await http.Response.fromStream(streamed);
+    return _decodeResponse(response);
+  }
 
+  Map<String, dynamic> _decodeResponse(http.Response response) {
     Map<String, dynamic> decoded = <String, dynamic>{};
     if (response.body.trim().isNotEmpty) {
       final value = jsonDecode(response.body);
@@ -61,8 +82,18 @@ class ApiClient {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      String? validationMessage;
+      final errors = decoded['errors'];
+      if (errors is Map) {
+        for (final value in errors.values) {
+          if (value is List && value.isNotEmpty) {
+            validationMessage = value.first.toString();
+            break;
+          }
+        }
+      }
       throw ApiException(
-        (decoded['message'] as String?) ?? 'VITI no pudo completar la solicitud.',
+        validationMessage ?? (decoded['message'] as String?) ?? 'VITI no pudo completar la solicitud.',
         statusCode: response.statusCode,
       );
     }
