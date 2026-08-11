@@ -10,6 +10,7 @@ class SecureSessionStore {
   static const _tokenKey = 'viti_token';
   static const _userKey = 'viti_user';
   static const _deviceKey = 'viti_device_id';
+  static const _companyKey = 'viti_empresa_id';
 
   final FlutterSecureStorage _storage;
 
@@ -20,6 +21,20 @@ class SecureSessionStore {
     if (raw == null || raw.isEmpty) return null;
     final decoded = jsonDecode(raw);
     return decoded is Map<String, dynamic> ? decoded : null;
+  }
+
+  Future<int?> companyId() async {
+    final raw = await _storage.read(key: _companyKey);
+    final value = int.tryParse(raw ?? '');
+    return value != null && value > 0 ? value : null;
+  }
+
+  Future<void> saveCompanyId(int? companyId) async {
+    if (companyId == null || companyId <= 0) {
+      await _storage.delete(key: _companyKey);
+      return;
+    }
+    await _storage.write(key: _companyKey, value: '$companyId');
   }
 
   Future<void> saveSession(String token, Map<String, dynamic> user) async {
@@ -42,5 +57,6 @@ class SecureSessionStore {
   Future<void> clearSession() async {
     await _storage.delete(key: _tokenKey);
     await _storage.delete(key: _userKey);
+    await _storage.delete(key: _companyKey);
   }
 }
