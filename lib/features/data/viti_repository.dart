@@ -15,24 +15,17 @@ class VitiRepository {
     return profile;
   }
 
-  Future<List<Map<String, dynamic>>> clientCompanies() async {
-    final profile = await clientProfile();
-    return _list(profile['empresas']);
-  }
-
+  Future<List<Map<String, dynamic>>> clientCompanies() async => _list((await clientProfile())['empresas']);
   Future<int?> activeCompanyId() => _api.selectedCompanyId();
 
   Future<void> selectCompany(int companyId) async {
     final companies = await clientCompanies();
-    if (!companies.any((company) => _int(company['id']) == companyId)) {
-      throw const ApiException('No tienes acceso a esa empresa.');
-    }
+    if (!companies.any((company) => _int(company['id']) == companyId)) throw const ApiException('No tienes acceso a esa empresa.');
     await _api.selectCompany(companyId);
   }
 
   Future<void> _ensureClientCompany() async {
-    final companyId = await _api.selectedCompanyId();
-    if (companyId != null) return;
+    if (await _api.selectedCompanyId() != null) return;
     await clientProfile();
   }
 
@@ -47,10 +40,7 @@ class VitiRepository {
     await _api.selectCompany(_int(companies.first['id']));
   }
 
-  Future<List<Map<String, dynamic>>> clientRequests() async {
-    final response = await _api.getJson('/mi/solicitudes');
-    return _list(response['data']);
-  }
+  Future<List<Map<String, dynamic>>> clientRequests() async => _list((await _api.getJson('/mi/solicitudes'))['data']);
 
   Future<Map<String, dynamic>> createClientRequest() async {
     final response = await _api.postJson('/mi/solicitud', const <String, dynamic>{});
@@ -60,21 +50,18 @@ class VitiRepository {
 
   Future<Map<String, dynamic>?> clientProject() async {
     await _ensureClientCompany();
-    final response = await _api.getJson('/mi/proyecto');
-    final value = response['data'];
+    final value = (await _api.getJson('/mi/proyecto'))['data'];
     return value is Map<String, dynamic> ? value : null;
   }
 
   Future<List<Map<String, dynamic>>> clientApps() async {
     await _ensureClientCompany();
-    final response = await _api.getJson('/mi/aplicaciones');
-    return _list(response['data']);
+    return _list((await _api.getJson('/mi/aplicaciones'))['data']);
   }
 
   Future<Map<String, dynamic>> clientBilling() async {
     await _ensureClientCompany();
-    final response = await _api.getJson('/mi/pagos');
-    return _map(response['data']);
+    return _map((await _api.getJson('/mi/pagos'))['data']);
   }
 
   Future<void> sendProjectProof({required int projectId, required String amount, required String method, required String date, required String filePath, required String fileName}) async {
@@ -87,91 +74,31 @@ class VitiRepository {
     await _api.postMultipart('/mi/pagos/suscripciones/$subscriptionId/comprobante', fields: <String, String>{'monto': amount, 'metodo': method, 'fecha_pago': date}, fileField: 'comprobante', filePath: filePath, fileName: fileName);
   }
 
-  Future<List<Map<String, dynamic>>> clientInbox() async {
-    final response = await _api.getJson('/mi/buzon');
-    return _list(response['data']);
-  }
-
-  Future<Map<String, dynamic>> clientConversation(int id) async {
-    final response = await _api.getJson('/mi/buzon/$id');
-    return _map(response['data']);
-  }
-
-  Future<void> sendClientMessage(int id, String message) async {
-    await _api.postJson('/mi/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
-  }
-
-  Future<void> sendClientImage(int id, {required String filePath, required String fileName, String message = ''}) async {
-    await _api.postMultipart('/mi/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
-  }
-
-  Future<void> sendClientDocument(int id, {required String filePath, required String fileName, String message = ''}) async {
-    await _api.postMultipart('/mi/buzon/$id/documentos', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
-  }
+  Future<List<Map<String, dynamic>>> clientInbox() async => _list((await _api.getJson('/mi/buzon'))['data']);
+  Future<Map<String, dynamic>> clientConversation(int id) async => _map((await _api.getJson('/mi/buzon/$id'))['data']);
+  Future<void> sendClientMessage(int id, String message) async => _api.postJson('/mi/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
+  Future<void> sendClientImage(int id, {required String filePath, required String fileName, String message = ''}) async => _api.postMultipart('/mi/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
+  Future<void> sendClientDocument(int id, {required String filePath, required String fileName, String message = ''}) async => _api.postMultipart('/mi/buzon/$id/documentos', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
 
   Future<Map<String, dynamic>> adminDashboard() => _api.getJson('/dashboard');
+  Future<List<Map<String, dynamic>>> adminCompanies() async => _list((await _api.getJson('/empresas?per_page=100'))['data']);
+  Future<List<Map<String, dynamic>>> adminRequests() async => _list((await _api.getJson('/solicitudes?per_page=100'))['data']);
+  Future<List<Map<String, dynamic>>> adminProjects() async => _list((await _api.getJson('/proyectos?per_page=100'))['data']);
+  Future<List<Map<String, dynamic>>> adminApps() async => _list((await _api.getJson('/aplicaciones?per_page=100'))['data']);
+  Future<Map<String, dynamic>> adminBilling() async => _map((await _api.getJson('/pagos'))['data']);
+  Future<List<Map<String, dynamic>>> adminInbox() async => _list((await _api.getJson('/buzon?per_page=100'))['data']);
+  Future<Map<String, dynamic>> adminConversation(int id) async => _map((await _api.getJson('/buzon/$id'))['data']);
+  Future<void> sendAdminMessage(int id, String message) async => _api.postJson('/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
+  Future<void> sendAdminImage(int id, {required String filePath, required String fileName, String message = ''}) async => _api.postMultipart('/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
+  Future<void> sendAdminDocument(int id, {required String filePath, required String fileName, String message = ''}) async => _api.postMultipart('/buzon/$id/documentos', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
 
-  Future<List<Map<String, dynamic>>> adminCompanies() async {
-    final response = await _api.getJson('/empresas?per_page=100');
-    return _list(response['data']);
-  }
+  Future<Map<String, dynamic>> supportSummary() async => _map((await _api.getJson('/soporte/resumen'))['data']);
+  Future<List<Map<String, dynamic>>> supportInbox() async => _list((await _api.getJson('/soporte/buzon?per_page=100'))['data']);
+  Future<Map<String, dynamic>> supportConversation(int id) async => _map((await _api.getJson('/soporte/buzon/$id'))['data']);
+  Future<void> sendSupportMessage(int id, String message) async => _api.postJson('/soporte/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
+  Future<void> sendSupportFile(int id, {required String filePath, required String fileName, String message = ''}) async => _api.postMultipart('/soporte/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
 
-  Future<List<Map<String, dynamic>>> adminRequests() async {
-    final response = await _api.getJson('/solicitudes?per_page=100');
-    return _list(response['data']);
-  }
-
-  Future<List<Map<String, dynamic>>> adminProjects() async {
-    final response = await _api.getJson('/proyectos?per_page=100');
-    return _list(response['data']);
-  }
-
-  Future<List<Map<String, dynamic>>> adminApps() async {
-    final response = await _api.getJson('/aplicaciones?per_page=100');
-    return _list(response['data']);
-  }
-
-  Future<Map<String, dynamic>> adminBilling() async {
-    final response = await _api.getJson('/pagos');
-    return _map(response['data']);
-  }
-
-  Future<List<Map<String, dynamic>>> adminInbox() async {
-    final response = await _api.getJson('/buzon?per_page=100');
-    return _list(response['data']);
-  }
-
-  Future<Map<String, dynamic>> adminConversation(int id) async {
-    final response = await _api.getJson('/buzon/$id');
-    return _map(response['data']);
-  }
-
-  Future<void> sendAdminMessage(int id, String message) async {
-    await _api.postJson('/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
-  }
-
-  Future<void> sendAdminImage(int id, {required String filePath, required String fileName, String message = ''}) async {
-    await _api.postMultipart('/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
-  }
-
-  Future<void> sendAdminDocument(int id, {required String filePath, required String fileName, String message = ''}) async {
-    await _api.postMultipart('/buzon/$id/documentos', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
-  }
-
-  Future<Map<String, dynamic>> supportSummary() async {
-    final response = await _api.getJson('/soporte/resumen');
-    return _map(response['data']);
-  }
-
-  static Map<String, dynamic> _map(dynamic value) {
-    if (value is Map<String, dynamic>) return value;
-    return <String, dynamic>{};
-  }
-
-  static List<Map<String, dynamic>> _list(dynamic value) {
-    if (value is! List) return const <Map<String, dynamic>>[];
-    return value.whereType<Map<String, dynamic>>().toList(growable: false);
-  }
-
+  static Map<String, dynamic> _map(dynamic value) => value is Map<String, dynamic> ? value : <String, dynamic>{};
+  static List<Map<String, dynamic>> _list(dynamic value) => value is List ? value.whereType<Map<String, dynamic>>().toList(growable: false) : const <Map<String, dynamic>>[];
   static int _int(dynamic value) => int.tryParse('${value ?? 0}') ?? 0;
 }
