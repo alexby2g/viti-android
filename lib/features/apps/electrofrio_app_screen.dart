@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/ui/viti_ui.dart';
 import 'electrofrio_forms.dart';
 import 'electrofrio_order_workspace.dart';
 import 'electrofrio_repository.dart';
@@ -117,22 +118,46 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
         return Scaffold(
           appBar: AppBar(
             leading: const BackButton(),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            titleSpacing: 2,
+            title: Row(
               children: [
-                Text(widget.appName, style: const TextStyle(fontWeight: FontWeight.w900)),
-                Text(
-                  'Electrofrío · operación técnica',
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.ac_unit, size: 18, color: Theme.of(context).colorScheme.primary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                      Text(
+                        'VITI App · operación técnica',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 9, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             actions: [
-              Chip(
-                avatar: Icon(canManage ? Icons.edit_outlined : Icons.visibility_outlined, size: 17),
-                label: Text(widget.adminMode ? 'Administración VITI' : canManage ? 'Administración' : 'Consulta'),
-              ),
-              const SizedBox(width: 6),
+              if (desktop)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+                  child: VitiStatusBadge(
+                    widget.adminMode ? 'Administración VITI' : canManage ? 'Administración' : 'Consulta',
+                    tone: canManage ? VitiTone.primary : VitiTone.neutral,
+                    icon: canManage ? Icons.edit_outlined : Icons.visibility_outlined,
+                  ),
+                ),
               IconButton(onPressed: loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Actualizar'),
               const SizedBox(width: 8),
             ],
@@ -141,8 +166,7 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
           body: desktop
               ? Row(
                   children: [
-                    SizedBox(width: 245, child: _menu()),
-                    const VerticalDivider(width: 1),
+                    SizedBox(width: 252, child: _menu()),
                     Expanded(child: _content()),
                   ],
                 )
@@ -153,61 +177,134 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
   }
 
   Widget _menu({bool close = false}) {
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'VITI APP',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 1.4,
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(widget.appName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              ],
-            ),
-          ),
-          for (final key in visible)
+    final selected = modules[module];
+    return ColoredBox(
+      color: const Color(0xFF092B55),
+      child: SafeArea(
+        child: Column(
+          children: [
             Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: ListTile(
-                selected: module == key,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                leading: Icon(modules[key]!.icon),
-                title: Text(modules[key]!.label),
-                onTap: () {
-                  if (close) Navigator.pop(context);
-                  _select(key);
-                },
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                        child: const Text('VT', style: TextStyle(color: Color(0xFF092B55), fontSize: 11, fontWeight: FontWeight.w900)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('VITI APP', style: TextStyle(fontSize: 8, letterSpacing: 1.2, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: .48))),
+                            const SizedBox(height: 2),
+                            Text(widget.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: .07), borderRadius: BorderRadius.circular(11), border: Border.all(color: Colors.white.withValues(alpha: .08))),
+                    child: Row(
+                      children: [
+                        Icon(selected?.icon ?? Icons.dashboard_outlined, size: 16, color: const Color(0xFF9DD5FF)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(selected?.label ?? 'Inicio', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800))),
+                        VitiStatusBadge(canManage ? 'Gestión' : 'Consulta', tone: canManage ? VitiTone.success : VitiTone.neutral),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-        ],
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(10, 2, 10, 12),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 7),
+                    child: Text('OPERACIÓN', style: TextStyle(fontSize: 8, letterSpacing: 1.25, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: .42))),
+                  ),
+                  for (final key in visible)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Material(
+                        color: module == key ? Colors.white.withValues(alpha: .13) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(11),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(11),
+                          hoverColor: Colors.white.withValues(alpha: .06),
+                          onTap: () {
+                            if (close) Navigator.pop(context);
+                            _select(key);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                            child: Row(
+                              children: [
+                                Icon(modules[key]!.icon, size: 20, color: module == key ? Colors.white : const Color(0xFFB8CEE5)),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(modules[key]!.label, style: TextStyle(color: module == key ? Colors.white : const Color(0xFFD8E6F4), fontSize: 13, fontWeight: module == key ? FontWeight.w800 : FontWeight.w600))),
+                                if (module == key) Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF75B8FF), shape: BoxShape.circle)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Container(height: 1, color: Colors.white.withValues(alpha: .08)),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Icon(Icons.shield_outlined, color: Color(0xFF9DD5FF), size: 17),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Datos aislados por empresa', style: TextStyle(color: Colors.white.withValues(alpha: .55), fontSize: 10, fontWeight: FontWeight.w700))),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _content() {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    if (error != null) {
+    if (loading) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off, size: 42),
-            const SizedBox(height: 10),
-            Text(error!),
+            const CircularProgressIndicator(),
             const SizedBox(height: 12),
-            FilledButton.icon(onPressed: _initialize, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+            Text('Cargando ${modules[module]?.label.toLowerCase() ?? 'VITI App'}…', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ],
+        ),
+      );
+    }
+    if (error != null) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: VitiEmptyState(
+            title: 'No se pudo cargar ${modules[module]?.label.toLowerCase() ?? 'este módulo'}',
+            message: error!,
+            icon: Icons.cloud_off,
+            action: FilledButton.icon(onPressed: _initialize, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+          ),
         ),
       );
     }
@@ -216,82 +313,100 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
 
   Widget _summary(Map<String, dynamic> summary) {
     final agenda = _items(summary['agenda_hoy']);
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _header(
-          'Inicio',
-          'Citas, órdenes, cobros e inventario en una sola operación.',
-          actions: [
-            if (canManage)
-              FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add), label: const Text('Nueva orden')),
-            if (canManage)
-              OutlinedButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt_1), label: const Text('Nuevo cliente')),
-          ],
-        ),
-        const SizedBox(height: 18),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _stat('Clientes', summary['clientes'], Icons.people_outline, () => _select('clientes')),
-            _stat('Equipos', summary['equipos'], Icons.ac_unit, () => _select('equipos')),
-            _stat('Citas hoy', summary['citas_hoy'], Icons.event_outlined, () => _select('ordenes')),
-            _stat('Órdenes abiertas', summary['ordenes_abiertas'], Icons.assignment_outlined, () => _select('ordenes')),
-            if (hasPayments)
-              _stat('Por cobrar', '${_money(summary['por_cobrar'])} Bs', Icons.payments_outlined, () => _select('pagos')),
-            if (hasWarranty)
-              _stat('Garantías vigentes', summary['garantias_vigentes'], Icons.verified_outlined, () => _select('garantias')),
-            if (hasInventory)
-              _stat('Stock bajo', summary['stock_bajo'], Icons.warning_amber_outlined, () => _select('inventario')),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(26, 24, 26, 38),
+        children: [
+          VitiPageHeader(
+            eyebrow: 'VITI APP · ${widget.appName}',
+            title: 'Centro de operación',
+            subtitle: 'Citas, órdenes, cobros, garantías e inventario conectados en una sola vista operativa.',
+            actions: [
+              if (canManage) FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add_task), label: const Text('Nueva orden')),
+              if (canManage) OutlinedButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt_1), label: const Text('Nuevo cliente')),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              VitiMetricTile(label: 'Clientes', value: '${summary['clientes'] ?? 0}', icon: Icons.people_outline, tone: VitiTone.info, onTap: () => _select('clientes')),
+              VitiMetricTile(label: 'Equipos', value: '${summary['equipos'] ?? 0}', icon: Icons.ac_unit, tone: VitiTone.primary, onTap: () => _select('equipos')),
+              VitiMetricTile(label: 'Citas hoy', value: '${summary['citas_hoy'] ?? 0}', icon: Icons.event_outlined, tone: VitiTone.info, onTap: () => _select('ordenes')),
+              VitiMetricTile(label: 'Órdenes abiertas', value: '${summary['ordenes_abiertas'] ?? 0}', icon: Icons.assignment_outlined, tone: VitiTone.warning, onTap: () => _select('ordenes')),
+              if (hasPayments) VitiMetricTile(label: 'Por cobrar', value: '${_money(summary['por_cobrar'])} Bs', icon: Icons.payments_outlined, tone: VitiTone.warning, onTap: () => _select('pagos')),
+              if (hasWarranty) VitiMetricTile(label: 'Garantías vigentes', value: '${summary['garantias_vigentes'] ?? 0}', icon: Icons.verified_outlined, tone: VitiTone.success, onTap: () => _select('garantias')),
+              if (hasInventory) VitiMetricTile(label: 'Stock bajo', value: '${summary['stock_bajo'] ?? 0}', icon: Icons.warning_amber_outlined, tone: VitiTone.danger, onTap: () => _select('inventario')),
+            ],
+          ),
+          const SizedBox(height: 20),
+          VitiPanel(
+            padding: EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Agenda de hoy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 10),
-                if (agenda.isEmpty)
-                  Text('No hay visitas programadas para hoy.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                for (final row in agenda) _orderTile(row),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 17, 12, 14),
+                  child: Row(
+                    children: [
+                      Container(width: 38, height: 38, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(11)), child: Icon(Icons.today_outlined, size: 19, color: Theme.of(context).colorScheme.primary)),
+                      const SizedBox(width: 10),
+                      const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Agenda de hoy', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), Text('Próximas visitas y trabajos programados', style: TextStyle(fontSize: 11))])),
+                      if (agenda.isNotEmpty) VitiStatusBadge('${agenda.length} programadas', tone: VitiTone.info),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: agenda.isEmpty
+                      ? const VitiEmptyState(title: 'Agenda despejada', message: 'No hay visitas programadas para hoy.', icon: Icons.event_available_outlined)
+                      : Column(children: [for (final row in agenda) _orderTile(row)]),
+                ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _records(List<Map<String, dynamic>> items) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _header(
-          modules[module]!.label,
-          '${items.length} registros cargados.',
-          actions: [
-            if (canManage && module == 'clientes')
-              FilledButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt), label: const Text('Nuevo cliente')),
-            if (canManage && module == 'equipos')
-              FilledButton.icon(onPressed: () => _saveEquipment(), icon: const Icon(Icons.add), label: const Text('Nuevo equipo')),
-            if (canManage && module == 'tecnicos')
-              FilledButton.icon(onPressed: () => _saveTechnician(), icon: const Icon(Icons.person_add), label: const Text('Nuevo técnico')),
-            if (canManage && module == 'inventario')
-              FilledButton.icon(onPressed: () => _saveMaterial(), icon: const Icon(Icons.add_box_outlined), label: const Text('Nuevo material')),
-            if (canManage && module == 'ordenes')
-              FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add_task), label: const Text('Nueva orden')),
-          ],
-        ),
-        const SizedBox(height: 18),
-        if (items.isEmpty)
-          const Card(child: Padding(padding: EdgeInsets.all(24), child: Text('No hay registros para mostrar.'))),
-        for (final row in items)
-          if (const {'ordenes', 'garantias', 'historial'}.contains(module)) _orderTile(row) else _recordTile(row),
-      ],
+    final meta = modules[module]!;
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(26, 24, 26, 38),
+        children: [
+          VitiPageHeader(
+            eyebrow: 'VITI APP · ${widget.appName}',
+            title: meta.label,
+            subtitle: '${items.length} registro${items.length == 1 ? '' : 's'} disponibles en este módulo.',
+            actions: [
+              if (canManage && module == 'clientes') FilledButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt), label: const Text('Nuevo cliente')),
+              if (canManage && module == 'equipos') FilledButton.icon(onPressed: () => _saveEquipment(), icon: const Icon(Icons.add), label: const Text('Nuevo equipo')),
+              if (canManage && module == 'tecnicos') FilledButton.icon(onPressed: () => _saveTechnician(), icon: const Icon(Icons.person_add), label: const Text('Nuevo técnico')),
+              if (canManage && module == 'inventario') FilledButton.icon(onPressed: () => _saveMaterial(), icon: const Icon(Icons.add_box_outlined), label: const Text('Nuevo material')),
+              if (canManage && module == 'ordenes') FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add_task), label: const Text('Nueva orden')),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (items.isEmpty)
+            VitiEmptyState(title: 'Sin ${meta.label.toLowerCase()}', message: 'Los registros aparecerán aquí cuando exista información disponible.', icon: meta.icon)
+          else
+            VitiPanel(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                children: [
+                  for (final row in items)
+                    if (const {'ordenes', 'garantias', 'historial'}.contains(module)) _orderTile(row) else _recordTile(row),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -312,101 +427,34 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
       'pagos' => '${_text(row['orden_codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}',
       _ => '',
     };
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-        leading: CircleAvatar(child: Icon(modules[module]!.icon)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _showRecord(row),
-      ),
+    final inactive = row['activo'] == false;
+    final lowStock = module == 'inventario' && _num(row['stock']) <= _num(row['stock_minimo']);
+    return VitiEntityRow(
+      title: title,
+      subtitle: subtitle,
+      icon: modules[module]!.icon,
+      badges: [
+        if (inactive) const VitiStatusBadge('Inactivo', tone: VitiTone.neutral),
+        if (!inactive && const {'clientes', 'equipos', 'tecnicos'}.contains(module)) const VitiStatusBadge('Activo', tone: VitiTone.success),
+        if (lowStock) const VitiStatusBadge('Stock bajo', tone: VitiTone.danger, icon: Icons.warning_amber_outlined),
+      ],
+      onTap: () => _showRecord(row),
     );
   }
 
   Widget _orderTile(Map<String, dynamic> row) {
-    final colors = Theme.of(context).colorScheme;
     final stage = '${row['etapa'] ?? 'cita'}';
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _openOrder(row),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          child: Row(
-            children: [
-              CircleAvatar(child: Icon(_stageIcon(stage))),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    Text('${_stage(stage)} · ${_text(row['equipo_tipo'], 'Sin equipo')} · ${_text(row['tecnico_nombre'], 'Sin técnico')}', style: TextStyle(color: colors.onSurfaceVariant)),
-                    if (hasPayments)
-                      Text('Total ${_money(row['total'])} Bs · Saldo ${_money(row['saldo'])} Bs', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Chip(label: Text(_stage(stage))),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _header(String title, String subtitle, {List<Widget> actions = const []}) {
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          ],
-        ),
-        if (actions.isNotEmpty) Wrap(spacing: 8, runSpacing: 8, children: actions),
+    final saldo = _num(row['saldo']);
+    return VitiEntityRow(
+      title: '${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}',
+      subtitle: '${_stage(stage)} · ${_text(row['equipo_tipo'], 'Sin equipo')} · ${_text(row['tecnico_nombre'], 'Sin técnico')}',
+      icon: _stageIcon(stage),
+      badges: [
+        VitiStatusBadge(_stage(stage), tone: _stageTone(stage)),
+        if (hasPayments && saldo > 0) VitiStatusBadge('Saldo ${_money(saldo)} Bs', tone: VitiTone.warning, icon: Icons.payments_outlined),
+        if (hasPayments && saldo <= 0 && _num(row['total']) > 0) const VitiStatusBadge('Pagado', tone: VitiTone.success, icon: Icons.check_circle_outline),
       ],
-    );
-  }
-
-  Widget _stat(String label, dynamic value, IconData icon, VoidCallback onTap) {
-    return SizedBox(
-      width: 220,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                CircleAvatar(child: Icon(icon)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${value ?? 0}', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
-                      Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      onTap: () => _openOrder(row),
     );
   }
 
@@ -690,4 +738,12 @@ IconData _stageIcon(String value) => switch (value) {
       'servicio' => Icons.home_repair_service_outlined,
       'cerrada' => Icons.task_alt,
       _ => Icons.assignment_outlined,
+    };
+VitiTone _stageTone(String value) => switch (value) {
+      'cita' => VitiTone.info,
+      'diagnostico' => VitiTone.warning,
+      'propuesta' => VitiTone.primary,
+      'servicio' => VitiTone.primary,
+      'cerrada' => VitiTone.success,
+      _ => VitiTone.neutral,
     };
