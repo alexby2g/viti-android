@@ -58,21 +58,21 @@ class VitiSidebar extends StatelessWidget {
         child: Column(
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(collapsed ? 6 : 16, 16, collapsed ? 6 : 10, 12),
+              padding: EdgeInsets.fromLTRB(collapsed ? 5 : 16, 16, collapsed ? 5 : 10, 12),
               child: collapsed
                   ? Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const _BrandMark(collapsed: true),
+                        const Spacer(),
                         SizedBox(
-                          width: 28,
-                          height: 28,
+                          width: 26,
+                          height: 26,
                           child: IconButton(
                             tooltip: 'Expandir menú',
                             onPressed: onToggleCollapsed,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
-                            icon: const Icon(Icons.keyboard_double_arrow_right, size: 18),
+                            constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+                            icon: const Icon(Icons.keyboard_double_arrow_right, size: 17),
                           ),
                         ),
                       ],
@@ -108,9 +108,22 @@ class VitiSidebar extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('EMPRESA ACTIVA', style: TextStyle(fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: colors.onSurfaceVariant)),
+                                Text(
+                                  'EMPRESA ACTIVA',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    letterSpacing: 1.1,
+                                    fontWeight: FontWeight.w800,
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
                                 const SizedBox(height: 2),
-                                Text(companyName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                Text(
+                                  companyName!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w800),
+                                ),
                               ],
                             ),
                           ),
@@ -129,7 +142,15 @@ class VitiSidebar extends StatelessWidget {
                     if (!collapsed)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
-                        child: Text(group.key.toUpperCase(), style: TextStyle(fontSize: 9, letterSpacing: 1.2, fontWeight: FontWeight.w800, color: colors.onSurfaceVariant)),
+                        child: Text(
+                          group.key.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 9,
+                            letterSpacing: 1.2,
+                            fontWeight: FontWeight.w800,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
                       )
                     else
                       const SizedBox(height: 8),
@@ -157,13 +178,30 @@ class VitiSidebar extends StatelessWidget {
                   if (!collapsed)
                     ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                      leading: CircleAvatar(backgroundColor: colors.primaryContainer, foregroundColor: colors.onPrimaryContainer, child: Text(_initials(userName))),
-                      title: Text(userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      leading: CircleAvatar(
+                        backgroundColor: colors.primaryContainer,
+                        foregroundColor: colors.onPrimaryContainer,
+                        child: Text(_initials(userName)),
+                      ),
+                      title: Text(
+                        userName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
                       subtitle: Text(_pretty(role), style: TextStyle(color: colors.onSurfaceVariant)),
-                      trailing: IconButton(tooltip: 'Cerrar sesión', onPressed: onLogout, icon: const Icon(Icons.logout)),
+                      trailing: IconButton(
+                        tooltip: 'Cerrar sesión',
+                        onPressed: onLogout,
+                        icon: const Icon(Icons.logout),
+                      ),
                     )
                   else
-                    IconButton.filledTonal(tooltip: 'Cerrar sesión', onPressed: onLogout, icon: const Icon(Icons.logout)),
+                    IconButton.filledTonal(
+                      tooltip: 'Cerrar sesión',
+                      onPressed: onLogout,
+                      icon: const Icon(Icons.logout),
+                    ),
                 ],
               ),
             ),
@@ -204,7 +242,10 @@ class VitiMobileDrawer extends StatelessWidget {
     return SafeArea(
       child: Column(
         children: [
-          const Padding(padding: EdgeInsets.fromLTRB(18, 18, 18, 10), child: Align(alignment: Alignment.centerLeft, child: _BrandMark(collapsed: false))),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(18, 18, 18, 10),
+            child: Align(alignment: Alignment.centerLeft, child: _BrandMark(collapsed: false)),
+          ),
           if (companyName != null)
             ListTile(
               leading: const Icon(Icons.business_outlined),
@@ -220,7 +261,12 @@ class VitiMobileDrawer extends StatelessWidget {
               itemCount: items.length,
               itemBuilder: (context, index) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
-                child: _SidebarTile(item: items[index], selected: selectedIndex == index, collapsed: false, onTap: () => onSelected(index)),
+                child: _SidebarTile(
+                  item: items[index],
+                  selected: selectedIndex == index,
+                  collapsed: false,
+                  onTap: () => onSelected(index),
+                ),
               ),
             ),
           ),
@@ -231,10 +277,18 @@ class VitiMobileDrawer extends StatelessWidget {
               children: [
                 _AppearanceTile(controller: appearance, collapsed: false),
                 ListTile(
-                  leading: CircleAvatar(backgroundColor: colors.primaryContainer, foregroundColor: colors.onPrimaryContainer, child: Text(_initials(userName))),
+                  leading: CircleAvatar(
+                    backgroundColor: colors.primaryContainer,
+                    foregroundColor: colors.onPrimaryContainer,
+                    child: Text(_initials(userName)),
+                  ),
                   title: Text(userName, maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: Text(_pretty(role)),
-                  trailing: IconButton(onPressed: onLogout, tooltip: 'Cerrar sesión', icon: const Icon(Icons.logout)),
+                  trailing: IconButton(
+                    onPressed: onLogout,
+                    tooltip: 'Cerrar sesión',
+                    icon: const Icon(Icons.logout),
+                  ),
                 ),
               ],
             ),
@@ -246,7 +300,12 @@ class VitiMobileDrawer extends StatelessWidget {
 }
 
 class _SidebarTile extends StatelessWidget {
-  const _SidebarTile({required this.item, required this.selected, required this.collapsed, required this.onTap});
+  const _SidebarTile({
+    required this.item,
+    required this.selected,
+    required this.collapsed,
+    required this.onTap,
+  });
 
   final VitiNavItem item;
   final bool selected;
@@ -267,10 +326,19 @@ class _SidebarTile extends StatelessWidget {
           child: Row(
             mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
             children: [
-              Icon(item.icon, size: 21, color: selected ? colors.onPrimaryContainer : colors.onSurfaceVariant),
+              Icon(
+                item.icon,
+                size: 21,
+                color: selected ? colors.onPrimaryContainer : colors.onSurfaceVariant,
+              ),
               if (!collapsed) ...[
                 const SizedBox(width: 12),
-                Expanded(child: Text(item.label, style: TextStyle(fontWeight: selected ? FontWeight.w800 : FontWeight.w600))),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    style: TextStyle(fontWeight: selected ? FontWeight.w800 : FontWeight.w600),
+                  ),
+                ),
               ],
             ],
           ),
@@ -305,13 +373,39 @@ class _AppearanceTile extends StatelessWidget {
       initialValue: controller.mode,
       onSelected: controller.setMode,
       itemBuilder: (context) => const [
-        PopupMenuItem(value: ThemeMode.system, child: ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.brightness_auto_outlined), title: Text('Sistema'))),
-        PopupMenuItem(value: ThemeMode.light, child: ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.light_mode_outlined), title: Text('Claro'))),
-        PopupMenuItem(value: ThemeMode.dark, child: ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.dark_mode_outlined), title: Text('Oscuro'))),
+        PopupMenuItem(
+          value: ThemeMode.system,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.brightness_auto_outlined),
+            title: Text('Sistema'),
+          ),
+        ),
+        PopupMenuItem(
+          value: ThemeMode.light,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.light_mode_outlined),
+            title: Text('Claro'),
+          ),
+        ),
+        PopupMenuItem(
+          value: ThemeMode.dark,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.dark_mode_outlined),
+            title: Text('Oscuro'),
+          ),
+        ),
       ],
       child: collapsed
           ? SizedBox(height: 46, child: Center(child: Icon(icon)))
-          : ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 10), leading: Icon(icon), title: const Text('Apariencia'), trailing: Text(label)),
+          : ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+              leading: Icon(icon),
+              title: const Text('Apariencia'),
+              trailing: Text(label),
+            ),
     );
   }
 }
@@ -333,10 +427,21 @@ class _BrandMark extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         color: colors.surfaceContainerHighest,
       ),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Text('AGR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .7)),
-        Container(width: 23, height: 2, margin: const EdgeInsets.only(top: 3), color: colors.primary),
-      ]),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            'AGR',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .7),
+          ),
+          Container(
+            width: 23,
+            height: 2,
+            margin: const EdgeInsets.only(top: 3),
+            color: colors.primary,
+          ),
+        ],
+      ),
     );
     if (collapsed) return mark;
     return Row(
@@ -344,17 +449,37 @@ class _BrandMark extends StatelessWidget {
       children: [
         mark,
         const SizedBox(width: 10),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text('AGR STUDIO', style: TextStyle(fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: colors.onSurfaceVariant)),
-          const Text('VITI', style: TextStyle(fontSize: 20, letterSpacing: 1.5, fontWeight: FontWeight.w900)),
-        ]),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'AGR STUDIO',
+              style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.1,
+                fontWeight: FontWeight.w800,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            const Text(
+              'VITI',
+              style: TextStyle(fontSize: 20, letterSpacing: 1.5, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
       ],
     );
   }
 }
 
 String _initials(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).take(2).toList();
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .take(2)
+      .toList();
   if (parts.isEmpty) return 'V';
   return parts.map((part) => part.characters.first.toUpperCase()).join();
 }
