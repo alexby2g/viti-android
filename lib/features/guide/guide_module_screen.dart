@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/ui/viti_ui.dart';
 import '../data/viti_repository.dart';
 
 class GuideModuleScreen extends StatefulWidget {
@@ -58,6 +59,7 @@ class _GuideModuleScreenState extends State<GuideModuleScreen> {
   }
 
   Future<void> _resolveActiveStep() async {
+    if (!mounted) return;
     setState(() => loading = true);
     try {
       if (client) {
@@ -107,32 +109,45 @@ class _GuideModuleScreenState extends State<GuideModuleScreen> {
   @override
   Widget build(BuildContext context) {
     final items = steps;
+    final title = support ? 'Guía de soporte' : client ? 'Guía de mi proyecto' : 'Guía de operación';
+    final subtitle = support
+        ? 'Una ruta breve para trabajar únicamente sobre lo que te fue asignado.'
+        : client
+            ? 'Desde tu solicitud hasta la entrega, con la etapa actual resaltada.'
+            : 'Mapa operativo de solicitudes, proyectos, pagos, aplicaciones y entrega.';
+
     return RefreshIndicator(
       onRefresh: _resolveActiveStep,
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(26, 24, 26, 38),
         children: [
-          Text(support ? 'Guía de soporte' : client ? 'Guía de mi proyecto' : 'Flujo VITI', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 5),
-          Text(support ? 'Pasos para trabajar únicamente sobre lo que te fue asignado.' : client ? 'Tu ruta desde la solicitud hasta la entrega.' : 'Mapa operativo para administrar solicitudes, proyectos, pagos y entregas.', style: const TextStyle(color: Colors.white60)),
-          const SizedBox(height: 20),
+          VitiPageHeader(title: title, subtitle: subtitle, actions: [IconButton.filledTonal(onPressed: _resolveActiveStep, tooltip: 'Actualizar guía', icon: const Icon(Icons.refresh))]),
+          const SizedBox(height: 18),
           if (loading) const LinearProgressIndicator(),
-          for (var index = 0; index < items.length; index++) ...[
-            _StepCard(step: items[index], number: index + 1, active: index == active, done: client && index < active),
-            if (index < items.length - 1) const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 5), child: Icon(Icons.south, color: Colors.white38))),
-          ],
-          const SizedBox(height: 20),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Estados clave', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                SizedBox(height: 10),
-                Text('Borrador → En revisión → Aprobada → Convertida en proyecto → Beta → Finalizada → Entregada'),
-                SizedBox(height: 8),
-                Text('Beta, finalización técnica, entrega y suscripción son conceptos separados. El vencimiento de la prueba no convierte automáticamente una app en producción.', style: TextStyle(color: Colors.white60)),
-              ]),
-            ),
+          if (loading) const SizedBox(height: 14),
+          VitiPanel(
+            selected: true,
+            tone: VitiTone.info,
+            child: Row(children: [Icon(client ? Icons.explore_outlined : support ? Icons.support_agent : Icons.route_outlined, color: vitiToneColor(context, VitiTone.info)), const SizedBox(width: 12), Expanded(child: Text(client ? 'El paso resaltado representa la etapa más cercana a tu situación actual.' : support ? 'El flujo mantiene tu trabajo aislado de la administración global.' : 'El paso resaltado marca el foco operativo que VITI detecta ahora.', style: const TextStyle(fontWeight: FontWeight.w750)))]),
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (!client && !support && constraints.maxWidth >= 1180) {
+                return Wrap(spacing: 12, runSpacing: 12, children: [for (var index = 0; index < items.length; index++) SizedBox(width: (constraints.maxWidth - 36) / 4, child: _StepCard(step: items[index], number: index + 1, active: index == active, done: false))]);
+              }
+              return Column(children: [for (var index = 0; index < items.length; index++) ...[_StepCard(step: items[index], number: index + 1, active: index == active, done: client && index < active), if (index < items.length - 1) Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Icon(Icons.south, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant))]]);
+            },
+          ),
+          const SizedBox(height: 18),
+          VitiPanel(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Estados clave', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 10),
+              Wrap(spacing: 6, runSpacing: 6, children: const [VitiStatusBadge('Borrador'), VitiStatusBadge('En revisión', tone: VitiTone.warning), VitiStatusBadge('Aprobada', tone: VitiTone.success), VitiStatusBadge('Convertida', tone: VitiTone.primary), VitiStatusBadge('Beta', tone: VitiTone.info), VitiStatusBadge('Finalizada', tone: VitiTone.success), VitiStatusBadge('Entregada', tone: VitiTone.success)]),
+              const SizedBox(height: 12),
+              Text('Beta, finalización técnica, entrega y suscripción son estados separados. El vencimiento de una prueba no convierte automáticamente una aplicación en producción.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.35)),
+            ]),
           ),
         ],
       ),
@@ -156,18 +171,19 @@ class _StepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: active ? scheme.primaryContainer.withAlpha(115) : null,
-      shape: RoundedRectangleBorder(side: BorderSide(color: active ? scheme.primary : Colors.white12), borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          CircleAvatar(backgroundColor: done ? Colors.green.withAlpha(46) : active ? scheme.primaryContainer : null, child: Icon(done ? Icons.check : step.icon, color: done ? Colors.greenAccent : active ? scheme.primary : null)),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Paso $number', style: const TextStyle(fontSize: 11, color: Colors.white54)), const SizedBox(height: 2), Text(step.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), const SizedBox(height: 5), Text(step.text, style: const TextStyle(color: Colors.white60))])),
-          if (active) const Chip(label: Text('Ahora')),
-        ]),
+    final tone = done ? VitiTone.success : active ? VitiTone.primary : VitiTone.neutral;
+    final color = vitiToneColor(context, tone);
+    return VitiPanel(
+      selected: active || done,
+      tone: tone,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(width: 44, height: 44, decoration: BoxDecoration(color: color.withValues(alpha: .13), borderRadius: BorderRadius.circular(14)), child: Icon(done ? Icons.check : step.icon, color: color)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('PASO $number', style: TextStyle(fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 4), Text(step.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), const SizedBox(height: 5), Text(step.text, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.35))])),
+          if (active) const VitiStatusBadge('Ahora', tone: VitiTone.primary),
+        ],
       ),
     );
   }
