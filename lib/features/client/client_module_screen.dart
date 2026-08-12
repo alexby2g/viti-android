@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../apps/business_app_screen.dart';
+import '../apps/electrofrio_app_screen.dart';
 import '../data/viti_repository.dart';
 
 class ClientModuleScreen extends StatefulWidget {
@@ -107,6 +108,7 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
     final project = _map(map['proyecto']);
     final apps = _items(map['aplicaciones']);
     final companies = _items(profile['empresas']);
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -131,7 +133,7 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(_text(client['nombre'], 'Mi cuenta'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
-                Text('${_text(client['telefono'], 'Sin teléfono')} · ${_text(client['ci'], 'CI no registrado')}', style: const TextStyle(color: Colors.white60)),
+                Text('${_text(client['telefono'], 'Sin teléfono')} · ${_text(client['ci'], 'CI no registrado')}', style: TextStyle(color: muted)),
                 if (companies.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   Text('${companies.length} empresa${companies.length == 1 ? '' : 's'} asociada${companies.length == 1 ? '' : 's'}', style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -206,6 +208,7 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
     final key = _text(catalog['clave'], '');
     final canUse = app['puede_usar'] == true && app['acceso_cliente'] == true;
     final native = const {'servicio-tecnico', 'electrofrio'}.contains(key);
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       clipBehavior: Clip.antiAlias,
@@ -214,13 +217,13 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            const CircleAvatar(radius: 24, child: Icon(Icons.apps)),
+            CircleAvatar(radius: 24, child: Icon(key == 'electrofrio' ? Icons.ac_unit : Icons.apps)),
             const SizedBox(width: 14),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(_text(app['nombre'], 'Aplicación VITI'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 3),
-              Text('${_pretty(app['entorno'])} · ${_pretty(app['estado_servicio'] ?? app['estado'])}', style: const TextStyle(color: Colors.white60)),
-              if (_text(app['estado_mensaje'], '').isNotEmpty) ...[const SizedBox(height: 3), Text(_text(app['estado_mensaje'], ''), style: const TextStyle(fontSize: 12, color: Colors.white54))],
+              Text('${_pretty(app['entorno'])} · ${_pretty(app['estado_servicio'] ?? app['estado'])}', style: TextStyle(color: muted)),
+              if (_text(app['estado_mensaje'], '').isNotEmpty) ...[const SizedBox(height: 3), Text(_text(app['estado_mensaje'], ''), style: TextStyle(fontSize: 12, color: muted))],
             ])),
             const SizedBox(width: 12),
             Chip(label: Text(canUse ? (native ? 'Abrir' : 'Disponible') : 'Sin acceso')),
@@ -241,7 +244,12 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Esta aplicación todavía se está adaptando a la versión nativa.')));
       return;
     }
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => BusinessAppScreen(repository: widget.repository, appKey: key, appName: _text(app['nombre'], 'VITI App'))));
+
+    final name = _text(app['nombre'], 'VITI App');
+    final Widget screen = key == 'electrofrio'
+        ? ElectrofrioAppScreen(appName: name)
+        : BusinessAppScreen(repository: widget.repository, appKey: key, appName: name);
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
     if (mounted) await _load();
   }
 
@@ -264,7 +272,7 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
     );
   }
 
-  Widget _detail(String label, String value) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 12, color: Colors.white54, fontWeight: FontWeight.w700)), const SizedBox(height: 3), SelectableText(value)]));
+  Widget _detail(String label, String value) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)), const SizedBox(height: 3), SelectableText(value)]));
 }
 
 class _RequestCard extends StatelessWidget {
@@ -296,18 +304,19 @@ class _ProjectCard extends StatelessWidget {
     final progress = double.tryParse('${project['progreso'] ?? 0}') ?? 0;
     final app = _map(project['aplicacion']);
     final updates = _items(project['avances']);
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     final content = Padding(
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${_text(project['codigo'], 'PRO')} · ${_text(project['nombre'], 'Proyecto VITI')}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
         const SizedBox(height: 5),
-        Text('${_pretty(project['fase'])} · ${progress.toInt()}%', style: const TextStyle(color: Colors.white60)),
+        Text('${_pretty(project['fase'])} · ${progress.toInt()}%', style: TextStyle(color: muted)),
         const SizedBox(height: 12),
         LinearProgressIndicator(value: (progress / 100).clamp(0, 1)),
         if (detailed && app.isNotEmpty) ...[
           const SizedBox(height: 18),
           Text('Aplicación: ${_text(app['nombre'], 'VITI App')}', style: const TextStyle(fontWeight: FontWeight.w700)),
-          Text('${_pretty(app['entorno'])} · ${_pretty(app['estado_operativo'] ?? app['estado'])}', style: const TextStyle(color: Colors.white60)),
+          Text('${_pretty(app['entorno'])} · ${_pretty(app['estado_operativo'] ?? app['estado'])}', style: TextStyle(color: muted)),
         ],
         if (detailed && updates.isNotEmpty) ...[
           const SizedBox(height: 18),
@@ -340,7 +349,7 @@ class _Header extends StatelessWidget {
         children: [
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(subtitle, style: const TextStyle(color: Colors.white60))]),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))]),
           ),
           ?action,
         ],
@@ -362,7 +371,7 @@ class _Stat extends StatelessWidget {
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.all(18),
-              child: Row(children: [CircleAvatar(child: Icon(icon)), const SizedBox(width: 14), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)), Text(label, style: const TextStyle(color: Colors.white60))]))]),
+              child: Row(children: [CircleAvatar(child: Icon(icon)), const SizedBox(width: 14), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)), Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))]))]),
             ),
           ),
         ),
