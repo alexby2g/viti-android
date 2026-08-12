@@ -47,7 +47,15 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
       if (widget.admin && selectedProof != null) {
         final proofs = _collectProofs(_items(data['proyectos']), _items(data['suscripciones']));
         final selectedId = _int(_map(selectedProof!['pago'])['id']);
-        selectedProof = proofs.where((item) => _int(_map(item['pago'])['id']) == selectedId && _text(item['tipo'], '') == _text(selectedProof!['tipo'], '')).firstOrNull;
+        final selectedType = _text(selectedProof!['tipo'], '');
+        Map<String, dynamic>? refreshed;
+        for (final item in proofs) {
+          if (_int(_map(item['pago'])['id']) == selectedId && _text(item['tipo'], '') == selectedType) {
+            refreshed = item;
+            break;
+          }
+        }
+        selectedProof = refreshed;
       }
     } on ApiException catch (exception) {
       error = exception.message;
@@ -59,15 +67,19 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
   }
 
   Future<PlatformFile?> _pickProof() async {
-    final result = await FilePicker.pickFiles(type: FileType.custom, allowMultiple: false, allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf']);
-    if (result == null || result.files.isEmpty) return null;
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowMultiple: false,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+    );
+    if (!mounted || result == null || result.files.isEmpty) return null;
     final file = result.files.single;
     if (file.size > 5 * 1024 * 1024) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El comprobante no puede superar 5 MB.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El comprobante no puede superar 5 MB.')));
       return null;
     }
     if (file.path == null || file.path!.isEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo acceder al archivo seleccionado.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo acceder al archivo seleccionado.')));
       return null;
     }
     return file;
@@ -82,7 +94,14 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     setState(() => sending = true);
     try {
       final company = _map(project['empresa']);
-      await widget.repository.sendProjectProof(projectId: _int(project['id']), amount: amount, method: _text(company['metodo_pago_preferido'], 'qr'), date: DateTime.now().toIso8601String().split('T').first, filePath: file.path!, fileName: file.name);
+      await widget.repository.sendProjectProof(
+        projectId: _int(project['id']),
+        amount: amount,
+        method: _text(company['metodo_pago_preferido'], 'qr'),
+        date: DateTime.now().toIso8601String().split('T').first,
+        filePath: file.path!,
+        fileName: file.name,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comprobante enviado para revisión.')));
       await _load();
@@ -102,7 +121,14 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     setState(() => sending = true);
     try {
       final company = _map(project['empresa']);
-      await widget.repository.sendSubscriptionProof(subscriptionId: _int(subscription['id']), amount: amount, method: _text(company['metodo_pago_preferido'], 'qr'), date: DateTime.now().toIso8601String().split('T').first, filePath: file.path!, fileName: file.name);
+      await widget.repository.sendSubscriptionProof(
+        subscriptionId: _int(subscription['id']),
+        amount: amount,
+        method: _text(company['metodo_pago_preferido'], 'qr'),
+        date: DateTime.now().toIso8601String().split('T').first,
+        filePath: file.path!,
+        fileName: file.name,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comprobante de suscripción enviado.')));
       await _load();
@@ -116,7 +142,16 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (error != null) return Center(child: VitiEmptyState(title: 'No se pudieron cargar los pagos', message: error!, icon: Icons.cloud_off, action: FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Reintentar'))));
+    if (error != null) {
+      return Center(
+        child: VitiEmptyState(
+          title: 'No se pudieron cargar los pagos',
+          message: error!,
+          icon: Icons.cloud_off,
+          action: FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+        ),
+      );
+    }
     return widget.admin ? _adminExperience() : _clientExperience();
   }
 
@@ -130,7 +165,7 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
         children: [
           VitiPageHeader(
             title: 'Mis pagos',
-            subtitle: 'Desarrollo y suscripción permanecen separados. Tu comprobante conserva trazabilidad y el saldo cambia únicamente después de la revisión de AGR Studio.',
+            subtitle: 'Desarrollo y suscripción permanecen separados. El saldo cambia únicamente después de la revisión de AGR Studio.',
             actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))],
           ),
           const SizedBox(height: 18),
@@ -212,41 +247,88 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 1080;
-        final header = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            VitiPageHeader(title: 'Pagos VITI', subtitle: 'Control económico, comprobantes y saldos con revisión antes de afectar los importes.', actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))]),
-            const SizedBox(height: 18),
-            Wrap(spacing: 12, runSpacing: 12, children: [VitiMetricTile(label: 'Por cobrar', value: _money(summary['por_cobrar_proyectos']), icon: Icons.account_balance_wallet_outlined, tone: VitiTone.warning), VitiMetricTile(label: 'Comprobantes pendientes', value: '$pending', icon: Icons.receipt_long_outlined, tone: VitiTone.warning), VitiMetricTile(label: 'Suscripciones activas', value: '${summary['suscripciones_activas'] ?? 0}', icon: Icons.autorenew, tone: VitiTone.success), VitiMetricTile(label: 'Recurrente mensual', value: _money(summary['ingreso_recurrente_mensual']), icon: Icons.trending_up, tone: VitiTone.info)]),
-            const SizedBox(height: 16),
-            VitiSearchField(controller: searchController, hint: 'Buscar comprobante, empresa, pagador o proyecto…', onChanged: (value) => setState(() => query = value), width: 430),
-            const SizedBox(height: 14),
-          ],
-        );
+        if (!desktop) {
+          return RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 34),
+              children: [
+                _paymentHeader(summary, pending),
+                const SizedBox(height: 14),
+                _proofList(visible, desktop: false),
+                const SizedBox(height: 18),
+                _projectBalances(projects),
+              ],
+            ),
+          );
+        }
 
-        final list = VitiPanel(
-          padding: const EdgeInsets.all(10),
-          child: visible.isEmpty
-              ? const VitiEmptyState(title: 'Sin comprobantes', message: 'No hay resultados para la búsqueda actual.', icon: Icons.receipt_long_outlined)
-              : ListView.builder(
-                  shrinkWrap: !desktop,
-                  physics: desktop ? const ClampingScrollPhysics() : const NeverScrollableScrollPhysics(),
-                  itemCount: visible.length,
-                  itemBuilder: (context, index) => _proofRow(visible[index], desktop: desktop),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _paymentHeader(summary, pending),
+              const SizedBox(height: 14),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 6, child: _proofList(visible, desktop: true)),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      flex: 4,
+                      child: selectedProof == null
+                          ? const VitiEmptyState(title: 'Selecciona un comprobante', message: 'Aquí aparecerán pagador, archivo, estado y acciones de revisión.', icon: Icons.receipt_long_outlined)
+                          : VitiPanel(padding: EdgeInsets.zero, child: SingleChildScrollView(padding: const EdgeInsets.all(16), child: _proofInspector(selectedProof!))),
+                    ),
+                  ],
                 ),
-        );
-
-        final content = desktop
-            ? SizedBox(height: constraints.maxHeight - 270, child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(flex: 6, child: list), const SizedBox(width: 14), Expanded(flex: 4, child: selectedProof == null ? const VitiEmptyState(title: 'Selecciona un comprobante', message: 'Aquí aparecerán el pagador, archivo, estado y acciones de revisión.', icon: Icons.receipt_long_outlined) : SingleChildScrollView(child: _proofInspector(selectedProof!)))]))
-            : list;
-
-        return RefreshIndicator(
-          onRefresh: _load,
-          child: desktop
-              ? Padding(padding: const EdgeInsets.fromLTRB(24, 22, 24, 30), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [header, Expanded(child: content)]))
-              : ListView(padding: const EdgeInsets.fromLTRB(24, 22, 24, 30), children: [header, content, const SizedBox(height: 28), _projectBalances(projects)]),
+              ),
+            ],
+          ),
         );
       },
+    );
+  }
+
+  Widget _paymentHeader(Map<String, dynamic> summary, int pending) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        VitiPageHeader(
+          title: 'Pagos VITI',
+          subtitle: 'Control económico, comprobantes y saldos con revisión antes de afectar los importes.',
+          actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))],
+        ),
+        const SizedBox(height: 18),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            VitiMetricTile(label: 'Por cobrar', value: _money(summary['por_cobrar_proyectos']), icon: Icons.account_balance_wallet_outlined, tone: VitiTone.warning),
+            VitiMetricTile(label: 'Comprobantes pendientes', value: '$pending', icon: Icons.receipt_long_outlined, tone: VitiTone.warning),
+            VitiMetricTile(label: 'Suscripciones activas', value: '${summary['suscripciones_activas'] ?? 0}', icon: Icons.autorenew, tone: VitiTone.success),
+            VitiMetricTile(label: 'Recurrente mensual', value: _money(summary['ingreso_recurrente_mensual']), icon: Icons.trending_up, tone: VitiTone.info),
+          ],
+        ),
+        const SizedBox(height: 16),
+        VitiSearchField(controller: searchController, hint: 'Buscar comprobante, empresa, pagador o proyecto…', onChanged: (value) => setState(() => query = value), width: 470),
+      ],
+    );
+  }
+
+  Widget _proofList(List<Map<String, dynamic>> visible, {required bool desktop}) {
+    return VitiPanel(
+      padding: const EdgeInsets.all(10),
+      child: visible.isEmpty
+          ? const VitiEmptyState(title: 'Sin comprobantes', message: 'No hay resultados para la búsqueda actual.', icon: Icons.receipt_long_outlined)
+          : ListView.builder(
+              shrinkWrap: !desktop,
+              physics: desktop ? const ClampingScrollPhysics() : const NeverScrollableScrollPhysics(),
+              itemCount: visible.length,
+              itemBuilder: (context, index) => _proofRow(visible[index], desktop: desktop),
+            ),
     );
   }
 
@@ -281,10 +363,13 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     final type = _text(wrapper['tipo'], 'proyecto');
     final status = '${payment['estado_revision'] ?? 'pendiente_revision'}';
     final pending = status == 'pendiente_revision';
+    final fileName = _text(payment['comprobante_nombre'], 'Comprobante');
+    final mime = _text(payment['comprobante_mime'], 'Archivo');
+
     return VitiInspector(
-      title: _text(payment['comprobante_nombre'], 'Comprobante'),
+      title: fileName,
       subtitle: '${_money(payment['monto'])} · ${type == 'suscripcion' ? 'Suscripción' : _text(parent['codigo'], 'Proyecto')}',
-      icon: _fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], '')),
+      icon: _fileIcon(mime, fileName),
       badges: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status))],
       actions: [
         OutlinedButton.icon(onPressed: () => _showProof(wrapper), icon: const Icon(Icons.open_in_new), label: const Text('Abrir ficha')),
@@ -292,12 +377,7 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
         if (pending) FilledButton.icon(onPressed: () => _confirmProof(wrapper), icon: const Icon(Icons.check), label: const Text('Confirmar pago')),
       ],
       children: [
-        Container(
-          height: 150,
-          width: double.infinity,
-          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(_fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], '')), size: 44, color: Theme.of(context).colorScheme.primary), const SizedBox(height: 8), Text(_text(payment['comprobante_mime'], 'Archivo'), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 4), const Text('Vista integrada del archivo: siguiente etapa', style: TextStyle(fontSize: 10))]),
-        ),
+        _fileCard(fileName, mime),
         const SizedBox(height: 16),
         VitiKeyValue('Pagador', _text(payer['nombre'], _text(payer['usuario'], 'No identificado')), icon: Icons.person_outline),
         VitiKeyValue('Empresa', _text(company['nombre_comercial'], 'Sin empresa'), icon: Icons.business_outlined),
@@ -308,8 +388,52 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     );
   }
 
+  Widget _fileCard(String fileName, String mime) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: colors.surfaceContainer, borderRadius: BorderRadius.circular(14), border: Border.all(color: colors.outlineVariant)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(width: 48, height: 48, decoration: BoxDecoration(color: colors.primary.withValues(alpha: .12), borderRadius: BorderRadius.circular(13)), child: Icon(_fileIcon(mime, fileName), color: colors.primary, size: 25)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(fileName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, height: 1.25)),
+                const SizedBox(height: 4),
+                Text(mime, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant)),
+                const SizedBox(height: 8),
+                const VitiStatusBadge('Comprobante asociado', tone: VitiTone.info, icon: Icons.attachment_outlined),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _projectBalances(List<Map<String, dynamic>> projects) {
-    return VitiPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Proyectos y saldos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), const SizedBox(height: 10), for (final project in projects.take(12)) ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.account_tree_outlined), title: Text('${_text(project['codigo'], 'PRO')} · ${_text(project['nombre'], 'Proyecto')}', style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text('${_text(_map(project['empresa'])['nombre_comercial'], 'Sin empresa')} · Pendiente ${_money(project['pendiente'])}'), trailing: VitiStatusBadge(vitiPretty('${project['estado_pago'] ?? ''}'), tone: vitiToneForStatus('${project['estado_pago'] ?? ''}')))]));
+    return VitiPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Proyectos y saldos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          for (final project in projects.take(12))
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.account_tree_outlined),
+              title: Text('${_text(project['codigo'], 'PRO')} · ${_text(project['nombre'], 'Proyecto')}', style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text('${_text(_map(project['empresa'])['nombre_comercial'], 'Sin empresa')} · Pendiente ${_money(project['pendiente'])}'),
+              trailing: VitiStatusBadge(vitiPretty('${project['estado_pago'] ?? ''}'), tone: vitiToneForStatus('${project['estado_pago'] ?? ''}')),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showProof(Map<String, dynamic> wrapper) async {
@@ -322,11 +446,60 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     final pending = status == 'pendiente_revision';
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(type == 'suscripcion' ? 'Comprobante de suscripción' : 'Comprobante · ${_text(parent['codigo'], 'Proyecto')}'),
-        content: SizedBox(width: 700, child: VitiPanel(child: Wrap(spacing: 24, runSpacing: 8, children: [SizedBox(width: 210, child: VitiKeyValue('Monto', _money(payment['monto']), icon: Icons.payments_outlined)), SizedBox(width: 210, child: VitiKeyValue('Método', _pretty(payment['metodo']), icon: Icons.account_balance_outlined)), SizedBox(width: 210, child: VitiKeyValue('Fecha', _date(payment['fecha_pago']), icon: Icons.calendar_today_outlined)), SizedBox(width: 210, child: VitiKeyValue('Estado', vitiPretty(status), icon: Icons.fact_check_outlined)), SizedBox(width: 210, child: VitiKeyValue('Empresa', _text(company['nombre_comercial'], 'Sin empresa'), icon: Icons.business_outlined)), SizedBox(width: 210, child: VitiKeyValue('Pagador', _text(payer['nombre'], _text(payer['usuario'], 'No identificado')), icon: Icons.person_outline)), SizedBox(width: 440, child: VitiKeyValue('Archivo', _text(payment['comprobante_nombre'], 'Sin archivo identificado'), icon: _fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], ''))))]))),
-        actions: [if (pending) TextButton.icon(onPressed: () {Navigator.pop(dialogContext); _rejectProof(wrapper);}, icon: const Icon(Icons.close), label: const Text('Rechazar')), if (pending) FilledButton.icon(onPressed: () {Navigator.pop(dialogContext); _confirmProof(wrapper);}, icon: const Icon(Icons.check), label: const Text('Confirmar pago')), TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar'))],
-      ),
+      builder: (dialogContext) {
+        final size = MediaQuery.sizeOf(dialogContext);
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 760, maxHeight: size.height * .82),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+                  child: Row(children: [Expanded(child: Text(type == 'suscripcion' ? 'Comprobante de suscripción' : 'Comprobante · ${_text(parent['codigo'], 'Proyecto')}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900))), IconButton(onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close))]),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      _fileCard(_text(payment['comprobante_nombre'], 'Comprobante'), _text(payment['comprobante_mime'], 'Archivo')),
+                      const SizedBox(height: 14),
+                      VitiPanel(
+                        child: Wrap(
+                          spacing: 24,
+                          runSpacing: 10,
+                          children: [
+                            SizedBox(width: 210, child: VitiKeyValue('Monto', _money(payment['monto']), icon: Icons.payments_outlined)),
+                            SizedBox(width: 210, child: VitiKeyValue('Método', _pretty(payment['metodo']), icon: Icons.account_balance_outlined)),
+                            SizedBox(width: 210, child: VitiKeyValue('Fecha', _date(payment['fecha_pago']), icon: Icons.calendar_today_outlined)),
+                            SizedBox(width: 210, child: VitiKeyValue('Estado', vitiPretty(status), icon: Icons.fact_check_outlined)),
+                            SizedBox(width: 210, child: VitiKeyValue('Empresa', _text(company['nombre_comercial'], 'Sin empresa'), icon: Icons.business_outlined)),
+                            SizedBox(width: 210, child: VitiKeyValue('Pagador', _text(payer['nombre'], _text(payer['usuario'], 'No identificado')), icon: Icons.person_outline)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (pending) TextButton.icon(onPressed: () {Navigator.pop(dialogContext); _rejectProof(wrapper);}, icon: const Icon(Icons.close), label: const Text('Rechazar')),
+                      if (pending) ...[const SizedBox(width: 8), FilledButton.icon(onPressed: () {Navigator.pop(dialogContext); _confirmProof(wrapper);}, icon: const Icon(Icons.check), label: const Text('Confirmar pago'))],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -354,7 +527,10 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Rechazar comprobante'),
         content: SizedBox(width: 500, child: TextField(controller: reason, autofocus: true, minLines: 3, maxLines: 5, decoration: const InputDecoration(labelText: 'Motivo para el cliente *'))),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')), FilledButton(onPressed: () {final text = reason.text.trim(); if (text.length < 5) return; Navigator.pop(dialogContext, text);}, child: const Text('Rechazar'))],
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          FilledButton(onPressed: () {final text = reason.text.trim(); if (text.length < 5) return; Navigator.pop(dialogContext, text);}, child: const Text('Rechazar')),
+        ],
       ),
     );
     reason.dispose();
@@ -408,10 +584,11 @@ String _date(dynamic value) {
   String two(int number) => number.toString().padLeft(2, '0');
   return '${two(parsed.day)}/${two(parsed.month)}/${parsed.year}';
 }
-IconData _fileIcon(String mime, String name) {
-  final lower = name.toLowerCase();
-  if (mime.contains('pdf') || lower.endsWith('.pdf')) return Icons.picture_as_pdf_outlined;
-  if (mime.startsWith('image/') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp')) return Icons.image_outlined;
-  return Icons.insert_drive_file_outlined;
-}
 int _int(dynamic value) => int.tryParse('${value ?? 0}') ?? 0;
+IconData _fileIcon(String mime, String name) {
+  final lowerMime = mime.toLowerCase();
+  final lowerName = name.toLowerCase();
+  if (lowerMime.startsWith('image/') || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png') || lowerName.endsWith('.webp')) return Icons.image_outlined;
+  if (lowerMime.contains('pdf') || lowerName.endsWith('.pdf')) return Icons.picture_as_pdf_outlined;
+  return Icons.description_outlined;
+}
