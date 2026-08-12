@@ -269,8 +269,8 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
       subtitle: 'Tu solicitud más reciente',
       icon: Icons.assignment_outlined,
       badges: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status))],
-      children: [VitiKeyValue('Empresa', _text(request['empresa_nombre'], _text(_map(request['empresa'])['nombre_comercial'], 'Sin empresa')), icon: Icons.business_outlined), VitiKeyValue('Prioridad', vitiPretty('${request['prioridad'] ?? 'normal'}'), icon: Icons.flag_outlined)],
       actions: [OutlinedButton.icon(onPressed: () => _showRequest(request), icon: const Icon(Icons.open_in_new), label: const Text('Ver solicitud')), TextButton(onPressed: () => widget.onNavigate('solicitudes'), child: const Text('Ver historial'))],
+      children: [VitiKeyValue('Empresa', _text(request['empresa_nombre'], _text(_map(request['empresa'])['nombre_comercial'], 'Sin empresa')), icon: Icons.business_outlined), VitiKeyValue('Prioridad', vitiPretty('${request['prioridad'] ?? 'normal'}'), icon: Icons.flag_outlined)],
     );
   }
 
