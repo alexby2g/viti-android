@@ -19,6 +19,7 @@ class MessageModuleScreen extends StatefulWidget {
 class _MessageModuleScreenState extends State<MessageModuleScreen> {
   final TextEditingController reply = TextEditingController();
   final TextEditingController search = TextEditingController();
+  final ScrollController messageScroll = ScrollController();
   bool loading = true;
   bool loadingConversation = false;
   bool sending = false;
@@ -38,6 +39,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
   void dispose() {
     reply.dispose();
     search.dispose();
+    messageScroll.dispose();
     super.dispose();
   }
 
@@ -82,11 +84,19 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
     });
     try {
       current = await _fetchConversation(id);
+      _scrollToLatest();
     } on ApiException catch (exception) {
       error = exception.message;
     } finally {
       if (mounted) setState(() => loadingConversation = false);
     }
+  }
+
+  void _scrollToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !messageScroll.hasClients) return;
+      messageScroll.animateTo(messageScroll.position.maxScrollExtent, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+    });
   }
 
   Future<void> _sendText() async {
@@ -104,6 +114,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
       reply.clear();
       await _select(selectedId!);
       await _refreshInboxSilently();
+      _scrollToLatest();
     } on ApiException catch (exception) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
     } finally {
@@ -118,17 +129,17 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
       allowMultiple: false,
       allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
     );
-    if (result == null || result.files.isEmpty) return;
+    if (!mounted || result == null || result.files.isEmpty) return;
     final file = result.files.single;
     if (file.path == null || file.path!.isEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo acceder al archivo seleccionado.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo acceder al archivo seleccionado.')));
       return;
     }
     final extension = (file.extension ?? '').toLowerCase();
     final image = const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension);
-    final maxBytes = widget.support ? 10 * 1024 * 1024 : image ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+    final maxBytes = image && !widget.support ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxBytes) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(maxBytes == 5 * 1024 * 1024 ? 'La imagen no puede superar 5 MB.' : 'El archivo no puede superar 10 MB.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(maxBytes == 5 * 1024 * 1024 ? 'La imagen no puede superar 5 MB.' : 'El archivo no puede superar 10 MB.')));
       return;
     }
 
@@ -153,6 +164,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
       reply.clear();
       await _select(selectedId!);
       await _refreshInboxSilently();
+      _scrollToLatest();
     } on ApiException catch (exception) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
     } finally {
@@ -171,17 +183,27 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
   @override
   Widget build(BuildContext context) {
     if (loading && rows.isEmpty) return const Center(child: CircularProgressIndicator());
-    if (error != null && rows.isEmpty) return Center(child: VitiEmptyState(title: 'No se pudo cargar el buzón', message: error!, icon: Icons.cloud_off, action: FilledButton.icon(onPressed: _loadInbox, icon: const Icon(Icons.refresh), label: const Text('Reintentar'))));
+    if (error != null && rows.isEmpty) {
+      return Center(
+        child: VitiEmptyState(
+          title: 'No se pudo cargar el buzón',
+          message: error!,
+          icon: Icons.cloud_off,
+          action: FilledButton.icon(onPressed: _loadInbox, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+        ),
+      );
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 940;
         if (desktop) {
           return Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 22),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(width: 350, child: VitiPanel(padding: EdgeInsets.zero, child: _inbox())),
+                SizedBox(width: 360, child: VitiPanel(padding: EdgeInsets.zero, child: _inbox())),
                 const SizedBox(width: 12),
                 Expanded(child: VitiPanel(padding: EdgeInsets.zero, child: _conversation())),
               ],
@@ -194,7 +216,8 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
   }
 
   String get _title => widget.support ? 'Mensajes asignados' : widget.admin ? 'Atención VITI' : 'Mi buzón';
-  String get _subtitle => widget.support ? 'Solo conversaciones delegadas a tu cuenta.' : widget.admin ? 'Conversaciones privadas autorizadas.' : 'Mensajes y documentos con AGR Studio.';
+  String get _subtitle => widget.support ? 'Conversaciones delegadas a tu cuenta.' : widget.admin ? 'Conversaciones privadas con clientes y empresas.' : 'Mensajes y documentos con AGR Studio.';
+  String get _composerHint => widget.support ? 'Responder por soporte…' : widget.admin ? 'Responder al cliente…' : 'Escribe a AGR Studio…';
 
   Widget _inbox() {
     final visible = rows.where((row) {
@@ -209,9 +232,12 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
       child: ListView(
         padding: const EdgeInsets.all(14),
         children: [
-          Text(_title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 3),
-          Text(_subtitle, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+          Row(
+            children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text(_subtitle, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12))])),
+              IconButton.filledTonal(onPressed: loading ? null : _loadInbox, tooltip: 'Actualizar bandeja', icon: const Icon(Icons.refresh, size: 18)),
+            ],
+          ),
           const SizedBox(height: 14),
           VitiSearchField(controller: search, hint: 'Buscar conversación…', onChanged: (value) => setState(() => query = value), width: double.infinity),
           const SizedBox(height: 12),
@@ -224,25 +250,42 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
 
   Widget _conversationRow(Map<String, dynamic> row) {
     final colors = Theme.of(context).colorScheme;
-    final selected = _int(row['id']) == selectedId;
+    final isSelected = _int(row['id']) == selectedId;
     final unread = _int(row['no_leidos']);
+    final attachment = _preview(row) == 'Adjunto' || _preview(row).toLowerCase().contains('.pdf');
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Material(
-        color: selected ? colors.primaryContainer.withValues(alpha: .45) : Colors.transparent,
+        color: isSelected ? colors.primary.withValues(alpha: .10) : Colors.transparent,
         borderRadius: BorderRadius.circular(13),
         child: InkWell(
           borderRadius: BorderRadius.circular(13),
           onTap: () => _select(_int(row['id'])),
           child: Container(
             padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(13), border: Border.all(color: selected ? colors.primary.withValues(alpha: .5) : colors.outlineVariant.withValues(alpha: .6))),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(13), border: Border.all(color: isSelected ? colors.primary.withValues(alpha: .55) : colors.outlineVariant.withValues(alpha: .68))),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(radius: 19, backgroundColor: selected ? colors.primary : colors.surfaceContainerHighest, foregroundColor: selected ? colors.onPrimary : colors.onSurfaceVariant, child: Text(_initial(_contactName(row)), style: const TextStyle(fontWeight: FontWeight.w900))),
+                CircleAvatar(radius: 19, backgroundColor: isSelected ? colors.primary : colors.surfaceContainerHighest, foregroundColor: isSelected ? colors.onPrimary : colors.onSurfaceVariant, child: Text(_initial(_contactName(row)), style: const TextStyle(fontWeight: FontWeight.w900))),
                 const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(_contactName(row), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: unread > 0 ? FontWeight.w900 : FontWeight.w700))), if (unread > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: colors.primary, borderRadius: BorderRadius.circular(99)), child: Text('$unread', style: TextStyle(fontSize: 10, color: colors.onPrimary, fontWeight: FontWeight.w900)))]), const SizedBox(height: 3), Text(_preview(row), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant, height: 1.25)), const SizedBox(height: 5), Text(_time(_latestDate(row)), style: TextStyle(fontSize: 9, color: colors.onSurfaceVariant))])),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: Text(_contactName(row), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: unread > 0 ? FontWeight.w900 : FontWeight.w800))),
+                          if (unread > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: colors.primary, borderRadius: BorderRadius.circular(99)), child: Text('$unread', style: TextStyle(fontSize: 10, color: colors.onPrimary, fontWeight: FontWeight.w900))),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(children: [if (attachment) ...[Icon(Icons.attach_file, size: 12, color: colors.onSurfaceVariant), const SizedBox(width: 3)], Expanded(child: Text(_preview(row), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant, height: 1.25)))]),
+                      const SizedBox(height: 5),
+                      Text(_time(_latestDate(row)), style: TextStyle(fontSize: 9, color: colors.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -265,12 +308,21 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
           child: Row(
             children: [
               if (mobile) IconButton(onPressed: () => setState(() { selectedId = null; current = null; }), icon: const Icon(Icons.arrow_back)),
-              CircleAvatar(radius: 20, backgroundColor: colors.primaryContainer, child: const Icon(Icons.support_agent)),
+              CircleAvatar(radius: 20, backgroundColor: colors.primary.withValues(alpha: .12), child: Icon(widget.admin ? Icons.person_outline : Icons.support_agent, color: colors.primary)),
               const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_contactName(conversation), style: const TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 2), Text(_text(conversation['asunto'], 'Conversación VITI'), style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant))])),
-              VitiStatusBadge(widget.support ? 'Asignada' : 'Privada', tone: VitiTone.success),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_contactName(conversation), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 2),
+                    Text(_text(conversation['asunto'], widget.admin ? 'Atención VITI' : 'Canal con AGR Studio'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              VitiStatusBadge(widget.support ? 'Asignada' : 'Privada', tone: VitiTone.success, icon: Icons.lock_outline),
               const SizedBox(width: 6),
-              IconButton(onPressed: loadingConversation ? null : () => _select(selectedId!), tooltip: 'Actualizar', icon: const Icon(Icons.refresh)),
+              IconButton(onPressed: loadingConversation ? null : () => _select(selectedId!), tooltip: 'Actualizar conversación', icon: const Icon(Icons.refresh)),
             ],
           ),
         ),
@@ -278,7 +330,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
         Expanded(
           child: messages.isEmpty
               ? const VitiEmptyState(title: 'Todavía no hay mensajes', message: 'Escribe el primer mensaje para iniciar la conversación.', icon: Icons.chat_outlined)
-              : ListView.builder(padding: const EdgeInsets.fromLTRB(16, 18, 16, 12), itemCount: messages.length, itemBuilder: (context, index) => _messageBubble(messages[index])),
+              : ListView.builder(controller: messageScroll, padding: const EdgeInsets.fromLTRB(16, 18, 16, 12), itemCount: messages.length, itemBuilder: (context, index) => _messageBubble(messages[index])),
         ),
         const Divider(height: 1),
         SafeArea(
@@ -290,7 +342,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
               children: [
                 IconButton.filledTonal(onPressed: sending ? null : _attach, tooltip: 'Adjuntar imagen o documento', icon: const Icon(Icons.attach_file)),
                 const SizedBox(width: 8),
-                Expanded(child: TextField(controller: reply, minLines: 1, maxLines: 5, textInputAction: TextInputAction.newline, decoration: const InputDecoration(hintText: 'Responder al cliente…'))),
+                Expanded(child: TextField(controller: reply, minLines: 1, maxLines: 5, textInputAction: TextInputAction.newline, decoration: InputDecoration(hintText: _composerHint))),
                 const SizedBox(width: 8),
                 IconButton.filled(onPressed: sending ? null : _sendText, tooltip: 'Enviar', icon: sending ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send)),
               ],
@@ -308,8 +360,8 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
     final mine = message['es_mio'] == true || (widget.admin ? role != 'cliente' : widget.support ? role == 'soporte' : role == 'cliente');
     final fileName = _text(message['archivo_nombre'], '');
     final text = _text(message['mensaje'], '');
-    final bubbleColor = mine ? colors.primaryContainer : colors.surfaceContainerHighest;
-    final borderColor = mine ? colors.primary.withValues(alpha: .20) : colors.outlineVariant.withValues(alpha: .72);
+    final bubbleColor = mine ? colors.primary.withValues(alpha: .18) : colors.surfaceContainerHighest;
+    final borderColor = mine ? colors.primary.withValues(alpha: .28) : colors.outlineVariant.withValues(alpha: .72);
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -320,7 +372,12 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (fileName.isNotEmpty) Container(padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: colors.surface.withValues(alpha: .55), borderRadius: BorderRadius.circular(10)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.description_outlined, size: 18), const SizedBox(width: 7), Flexible(child: Text(fileName, style: const TextStyle(fontWeight: FontWeight.w800)))])),
+            if (fileName.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(color: colors.surface.withValues(alpha: .55), borderRadius: BorderRadius.circular(10)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.description_outlined, size: 18), const SizedBox(width: 7), Flexible(child: Text(fileName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)))]),
+              ),
             if (fileName.isNotEmpty && text.isNotEmpty) const SizedBox(height: 7),
             if (text.isNotEmpty) Text(text, style: const TextStyle(height: 1.35)),
             if (text.isEmpty && fileName.isEmpty) Text('Adjunto', style: TextStyle(color: colors.onSurfaceVariant)),
