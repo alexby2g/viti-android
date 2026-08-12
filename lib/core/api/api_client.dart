@@ -25,42 +25,53 @@ class ApiClient {
   Future<int?> selectedCompanyId() => _store.companyId();
   Future<void> selectCompany(int? companyId) => _store.saveCompanyId(companyId);
 
-  Future<Map<String, dynamic>> getJson(String path, {bool authenticated = true}) {
-    return _send('GET', path, authenticated: authenticated);
+  Future<Map<String, dynamic>> getJson(
+    String path, {
+    bool authenticated = true,
+    int? companyId,
+  }) {
+    return _send('GET', path, authenticated: authenticated, companyId: companyId);
   }
 
   Future<Map<String, dynamic>> postJson(
     String path,
     Map<String, dynamic> body, {
     bool authenticated = true,
+    int? companyId,
   }) {
-    return _send('POST', path, body: body, authenticated: authenticated);
+    return _send('POST', path, body: body, authenticated: authenticated, companyId: companyId);
   }
 
   Future<Map<String, dynamic>> putJson(
     String path,
     Map<String, dynamic> body, {
     bool authenticated = true,
+    int? companyId,
   }) {
-    return _send('PUT', path, body: body, authenticated: authenticated);
+    return _send('PUT', path, body: body, authenticated: authenticated, companyId: companyId);
   }
 
   Future<Map<String, dynamic>> deleteJson(
     String path, {
     Map<String, dynamic>? body,
     bool authenticated = true,
+    int? companyId,
   }) {
-    return _send('DELETE', path, body: body, authenticated: authenticated);
+    return _send('DELETE', path, body: body, authenticated: authenticated, companyId: companyId);
   }
 
-  Future<Map<String, String>> _headers({required bool authenticated, bool json = true}) async {
+  Future<Map<String, String>> _headers({
+    required bool authenticated,
+    bool json = true,
+    int? companyId,
+  }) async {
     final headers = <String, String>{'Accept': 'application/json'};
     if (json) headers['Content-Type'] = 'application/json';
     if (authenticated) {
       final token = await _store.token();
       if (token != null && token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
-      final companyId = await _store.companyId();
-      if (companyId != null) headers['X-VITI-Empresa'] = '$companyId';
+      final resolvedCompanyId = companyId ?? await _store.companyId();
+      if (resolvedCompanyId != null) headers['X-VITI-Empresa'] = '$resolvedCompanyId';
     }
     return headers;
   }
@@ -71,9 +82,10 @@ class ApiClient {
     required String fileField,
     required String filePath,
     required String fileName,
+    int? companyId,
   }) async {
     final request = http.MultipartRequest('POST', _uri(path));
-    request.headers.addAll(await _headers(authenticated: true, json: false));
+    request.headers.addAll(await _headers(authenticated: true, json: false, companyId: companyId));
     request.fields.addAll(fields);
     request.files.add(await http.MultipartFile.fromPath(fileField, filePath, filename: fileName));
     final streamed = await request.send();
@@ -86,9 +98,10 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     required bool authenticated,
+    int? companyId,
   }) async {
     final request = http.Request(method, _uri(path))
-      ..headers.addAll(await _headers(authenticated: authenticated));
+      ..headers.addAll(await _headers(authenticated: authenticated, companyId: companyId));
     if (body != null) request.body = jsonEncode(body);
     final streamed = await _client.send(request);
     final response = await http.Response.fromStream(streamed);
