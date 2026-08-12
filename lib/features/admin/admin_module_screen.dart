@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../apps/business_app_screen.dart';
+import '../apps/electrofrio_app_screen.dart';
 import '../data/viti_repository.dart';
 
 class AdminModuleScreen extends StatefulWidget {
@@ -253,19 +254,20 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
   }
 
   Future<void> _showApplication(Map<String, dynamic> source) async {
+    final hostContext = context;
     var app = Map<String, dynamic>.from(source);
     await showDialog<void>(
-      context: context,
+      context: hostContext,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
+        builder: (dialogBodyContext, setDialogState) {
           final company = _map(app['empresa']);
           final catalog = _map(app['catalogo']);
           final project = _map(app['proyecto']);
           final key = _text(catalog['clave'], '');
           final companyId = _int(app['empresa_id'] ?? company['id']);
           final native = const {'servicio-tecnico', 'electrofrio'}.contains(key);
-          final colors = Theme.of(context).colorScheme;
+          final colors = Theme.of(dialogBodyContext).colorScheme;
 
           Future<void> refreshApp() async {
             final refreshed = await widget.repository.adminApp(_int(app['id']));
@@ -294,7 +296,7 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
                     decoration: BoxDecoration(color: colors.surfaceContainerHighest, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
                     child: Row(
                       children: [
-                        CircleAvatar(child: const Icon(Icons.apps_outlined)),
+                        CircleAvatar(child: Icon(key == 'electrofrio' ? Icons.ac_unit : Icons.apps_outlined)),
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_text(app['nombre'], 'Aplicación VITI'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), Text('${_pretty(app['entorno'])} · ${_pretty(app['estado'])}', style: TextStyle(color: colors.onSurfaceVariant))])),
                         IconButton(onPressed: () => Navigator.of(dialogContext).pop(), icon: const Icon(Icons.close)),
@@ -335,16 +337,13 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
                                     if (native && companyId > 0)
                                       FilledButton.icon(
                                         onPressed: () async {
+                                          final appName = _text(app['nombre'], 'VITI App');
                                           Navigator.of(dialogContext).pop();
-                                          await Navigator.of(context).push(MaterialPageRoute<void>(
-                                            builder: (_) => BusinessAppScreen(
-                                              repository: widget.repository,
-                                              appKey: key,
-                                              appName: _text(app['nombre'], 'VITI App'),
-                                              adminMode: true,
-                                              companyId: companyId,
-                                            ),
-                                          ));
+                                          if (!hostContext.mounted) return;
+                                          final Widget screen = key == 'electrofrio'
+                                              ? ElectrofrioAppScreen(appName: appName, adminMode: true, companyId: companyId)
+                                              : BusinessAppScreen(repository: widget.repository, appKey: key, appName: appName, adminMode: true, companyId: companyId);
+                                          await Navigator.of(hostContext).push(MaterialPageRoute<void>(builder: (_) => screen));
                                           if (mounted) await _load();
                                         },
                                         icon: const Icon(Icons.open_in_new),
