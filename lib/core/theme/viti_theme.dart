@@ -67,7 +67,7 @@ class VitiTheme {
       scaffoldBackgroundColor: scaffold,
       canvasColor: scaffold,
       textTheme: textTheme,
-      splashFactory: InkSparkle.splashFactory,
+      splashFactory: InkRipple.splashFactory,
       visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
       cardTheme: CardThemeData(
         color: surface,
@@ -86,7 +86,7 @@ class VitiTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: TextStyle(color: scheme.onSurface, fontSize: 18, fontWeight: FontWeight.w850),
+        titleTextStyle: TextStyle(color: scheme.onSurface, fontSize: 18, fontWeight: FontWeight.w900),
       ),
       drawerTheme: DrawerThemeData(
         backgroundColor: surface,
@@ -133,13 +133,13 @@ class VitiTheme {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           side: BorderSide(color: divider),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w750),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w750),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       chipTheme: ChipThemeData(
@@ -148,7 +148,7 @@ class VitiTheme {
         side: BorderSide(color: divider.withValues(alpha: .8)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         padding: const EdgeInsets.symmetric(horizontal: 5),
-        labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w750),
+        labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
