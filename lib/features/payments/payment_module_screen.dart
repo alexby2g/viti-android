@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/ui/viti_ui.dart';
 import '../data/viti_repository.dart';
 
 class PaymentModuleScreen extends StatefulWidget {
@@ -15,15 +16,24 @@ class PaymentModuleScreen extends StatefulWidget {
 }
 
 class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
+  final searchController = TextEditingController();
   bool loading = true;
   bool sending = false;
   String? error;
+  String query = '';
   Map<String, dynamic> data = <String, dynamic>{};
+  Map<String, dynamic>? selectedProof;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -34,6 +44,11 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     });
     try {
       data = widget.admin ? await widget.repository.adminBilling() : await widget.repository.clientBilling();
+      if (widget.admin && selectedProof != null) {
+        final proofs = _collectProofs(_items(data['proyectos']), _items(data['suscripciones']));
+        final selectedId = _int(_map(selectedProof!['pago'])['id']);
+        selectedProof = proofs.where((item) => _int(_map(item['pago'])['id']) == selectedId && _text(item['tipo'], '') == _text(selectedProof!['tipo'], '')).firstOrNull;
+      }
     } on ApiException catch (exception) {
       error = exception.message;
     } catch (_) {
@@ -44,11 +59,7 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
   }
 
   Future<PlatformFile?> _pickProof() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowMultiple: false,
-      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
-    );
+    final result = await FilePicker.pickFiles(type: FileType.custom, allowMultiple: false, allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf']);
     if (result == null || result.files.isEmpty) return null;
     final file = result.files.single;
     if (file.size > 5 * 1024 * 1024) {
@@ -67,18 +78,11 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     final amount = '${next['monto'] ?? 0}';
     if ((double.tryParse(amount) ?? 0) <= 0) return;
     final file = await _pickProof();
-    if (file == null) return;
+    if (file == null || !mounted) return;
     setState(() => sending = true);
     try {
       final company = _map(project['empresa']);
-      await widget.repository.sendProjectProof(
-        projectId: _int(project['id']),
-        amount: amount,
-        method: _text(company['metodo_pago_preferido'], 'qr'),
-        date: DateTime.now().toIso8601String().split('T').first,
-        filePath: file.path!,
-        fileName: file.name,
-      );
+      await widget.repository.sendProjectProof(projectId: _int(project['id']), amount: amount, method: _text(company['metodo_pago_preferido'], 'qr'), date: DateTime.now().toIso8601String().split('T').first, filePath: file.path!, fileName: file.name);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comprobante enviado para revisión.')));
       await _load();
@@ -94,18 +98,11 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     final amount = '${subscription['importe_pendiente'] ?? 0}';
     if ((double.tryParse(amount) ?? 0) <= 0 || _int(subscription['id']) <= 0) return;
     final file = await _pickProof();
-    if (file == null) return;
+    if (file == null || !mounted) return;
     setState(() => sending = true);
     try {
       final company = _map(project['empresa']);
-      await widget.repository.sendSubscriptionProof(
-        subscriptionId: _int(subscription['id']),
-        amount: amount,
-        method: _text(company['metodo_pago_preferido'], 'qr'),
-        date: DateTime.now().toIso8601String().split('T').first,
-        filePath: file.path!,
-        fileName: file.name,
-      );
+      await widget.repository.sendSubscriptionProof(subscriptionId: _int(subscription['id']), amount: amount, method: _text(company['metodo_pago_preferido'], 'qr'), date: DateTime.now().toIso8601String().split('T').first, filePath: file.path!, fileName: file.name);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comprobante de suscripción enviado.')));
       await _load();
@@ -119,150 +116,200 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (error != null) return _PaymentError(message: error!, retry: _load);
+    if (error != null) return Center(child: VitiEmptyState(title: 'No se pudieron cargar los pagos', message: error!, icon: Icons.cloud_off, action: FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Reintentar'))));
+    return widget.admin ? _adminExperience() : _clientExperience();
+  }
+
+  Widget _clientExperience() {
+    final projects = _items(data['proyectos']);
+    final config = _map(data['configuracion']);
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: widget.admin ? _adminContent() : _clientContent(),
+        padding: const EdgeInsets.fromLTRB(26, 24, 26, 38),
+        children: [
+          VitiPageHeader(
+            title: 'Mis pagos',
+            subtitle: 'Desarrollo y suscripción permanecen separados. Tu comprobante conserva trazabilidad y el saldo cambia únicamente después de la revisión de AGR Studio.',
+            actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))],
+          ),
+          const SizedBox(height: 18),
+          if (config.isNotEmpty) _collectionData(config),
+          if (config.isNotEmpty) const SizedBox(height: 14),
+          if (projects.isEmpty) const VitiEmptyState(title: 'Sin obligaciones de pago', message: 'Cuando exista un proyecto o suscripción con saldo, aparecerá aquí.', icon: Icons.payments_outlined),
+          for (final project in projects) ...[_clientProjectPayment(project), const SizedBox(height: 14)],
+        ],
       ),
     );
   }
 
-  List<Widget> _clientContent() {
-    final projects = _items(data['proyectos']);
-    final config = _map(data['configuracion']);
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return [
-      const Text('Mis pagos', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-      const SizedBox(height: 4),
-      Text('El desarrollo y la suscripción se controlan por separado. Un comprobante no modifica el saldo hasta que AGR Studio lo confirme.', style: TextStyle(color: muted)),
-      const SizedBox(height: 18),
-      if (config.isNotEmpty)
-        Card(child: ListTile(leading: const Icon(Icons.qr_code_2), title: Text(_text(config['banco'], 'Medio de pago VITI')), subtitle: Text('Titular: ${_text(config['titular'], 'AGR Studio')}'))),
-      const SizedBox(height: 10),
-      if (projects.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(24), child: Text('Todavía no hay obligaciones de pago.'))),
-      for (final project in projects) ...[
-        Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [Expanded(child: Text('${_text(project['codigo'], 'PRO')} · ${_text(project['nombre'], 'Proyecto')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))), Chip(label: Text(_pretty(project['estado_pago'])))]),
-              const SizedBox(height: 12),
-              Wrap(spacing: 22, runSpacing: 10, children: [
-                _Money(label: 'Acordado', value: project['precio_acordado']),
-                _Money(label: 'Pagado', value: project['pagado']),
-                _Money(label: 'Pendiente', value: project['pendiente']),
-              ]),
-              const SizedBox(height: 14),
-              if (_map(project['siguiente_pago'])['puede_enviar'] == true)
-                FilledButton.icon(onPressed: sending ? null : () => _sendProjectProof(project), icon: const Icon(Icons.upload_file), label: Text('Enviar comprobante · ${_money(_map(project['siguiente_pago'])['monto'])}')),
-              if (_map(project['siguiente_pago'])['comprobante_pendiente_id'] != null)
-                const Chip(avatar: Icon(Icons.schedule, size: 18), label: Text('Comprobante del proyecto en revisión')),
-              if (_map(project['suscripcion']).isNotEmpty) ...[
-                const Divider(height: 30),
-                Text('Suscripción · ${_text(_map(project['suscripcion'])['plan'], 'Plan VITI')}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 6),
-                Text('${_pretty(_map(project['suscripcion'])['estado'])} · ${_money(_map(project['suscripcion'])['importe_pendiente'])}', style: TextStyle(color: muted)),
-                if (_map(project['suscripcion'])['puede_enviar_comprobante'] == true) ...[
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(onPressed: sending ? null : () => _sendSubscriptionProof(project), icon: const Icon(Icons.upload_file), label: const Text('Enviar comprobante de suscripción')),
-                ],
-                if (_map(project['suscripcion'])['comprobante_pendiente_id'] != null)
-                  const Chip(avatar: Icon(Icons.schedule, size: 18), label: Text('Comprobante de suscripción en revisión')),
-              ],
-            ]),
-          ),
-        ),
-      ],
-    ];
+  Widget _collectionData(Map<String, dynamic> config) {
+    return VitiPanel(
+      tone: VitiTone.info,
+      child: Row(
+        children: [
+          Container(width: 46, height: 46, decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.qr_code_2)),
+          const SizedBox(width: 13),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Datos de cobro VITI', style: TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text('${_text(config['banco'], 'Medio de pago VITI')} · Titular ${_text(config['titular'], 'AGR Studio')}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12))])),
+          const VitiStatusBadge('Verificado', tone: VitiTone.success, icon: Icons.verified_outlined),
+        ],
+      ),
+    );
   }
 
-  List<Widget> _adminContent() {
+  Widget _clientProjectPayment(Map<String, dynamic> project) {
+    final next = _map(project['siguiente_pago']);
+    final subscription = _map(project['suscripcion']);
+    final state = '${project['estado_pago'] ?? 'pendiente'}';
+    final agreed = _number(project['precio_acordado']);
+    final paid = _number(project['pagado']);
+    final ratio = agreed <= 0 ? 0.0 : (paid / agreed).clamp(0, 1);
+    return VitiPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${_text(project['codigo'], 'PRO')} · ${_text(project['nombre'], 'Proyecto')}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)), const SizedBox(height: 5), VitiStatusBadge(vitiPretty(state), tone: vitiToneForStatus(state))]))]),
+          const SizedBox(height: 16),
+          Wrap(spacing: 20, runSpacing: 10, children: [VitiKeyValue('Acordado', _money(project['precio_acordado']), icon: Icons.request_quote_outlined), VitiKeyValue('Pagado', _money(project['pagado']), icon: Icons.check_circle_outline), VitiKeyValue('Pendiente', _money(project['pendiente']), icon: Icons.account_balance_wallet_outlined)]),
+          const SizedBox(height: 12),
+          ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: ratio, minHeight: 8)),
+          const SizedBox(height: 15),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            if (next['puede_enviar'] == true) FilledButton.icon(onPressed: sending ? null : () => _sendProjectProof(project), icon: const Icon(Icons.upload_file), label: Text('Enviar comprobante · ${_money(next['monto'])}')),
+            if (next['comprobante_pendiente_id'] != null) const VitiStatusBadge('Proyecto en revisión', tone: VitiTone.warning, icon: Icons.schedule),
+          ]),
+          if (subscription.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
+            Row(children: [const Icon(Icons.autorenew, size: 20), const SizedBox(width: 8), Expanded(child: Text('Suscripción · ${_text(subscription['plan'], 'Plan VITI')}', style: const TextStyle(fontWeight: FontWeight.w900))), VitiStatusBadge(vitiPretty('${subscription['estado'] ?? ''}'), tone: vitiToneForStatus('${subscription['estado'] ?? ''}'))]),
+            const SizedBox(height: 8),
+            Text('Pendiente ${_money(subscription['importe_pendiente'])}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [if (subscription['puede_enviar_comprobante'] == true) OutlinedButton.icon(onPressed: sending ? null : () => _sendSubscriptionProof(project), icon: const Icon(Icons.upload_file), label: const Text('Enviar comprobante de suscripción')), if (subscription['comprobante_pendiente_id'] != null) const VitiStatusBadge('Suscripción en revisión', tone: VitiTone.warning, icon: Icons.schedule)]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _adminExperience() {
     final summary = _map(data['resumen']);
     final projects = _items(data['proyectos']);
     final subscriptions = _items(data['suscripciones']);
-    final proofs = _collectProofs(projects, subscriptions);
-    final pending = proofs.where((item) => _text(_map(item['pago'])['estado_revision'], '') == 'pendiente_revision').toList(growable: false);
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final allProofs = _collectProofs(projects, subscriptions);
+    final visible = allProofs.where((wrapper) {
+      if (query.trim().isEmpty) return true;
+      final payment = _map(wrapper['pago']);
+      final company = _map(wrapper['empresa']);
+      final parent = _map(wrapper['padre']);
+      final payer = _map(payment['pagador']);
+      final haystack = '${company['nombre_comercial']} ${payer['nombre']} ${payer['usuario']} ${parent['codigo']} ${parent['nombre']} ${payment['comprobante_nombre']} ${payment['estado_revision']}'.toLowerCase();
+      return haystack.contains(query.toLowerCase().trim());
+    }).toList(growable: false);
+    final pending = allProofs.where((item) => _text(_map(item['pago'])['estado_revision'], '') == 'pendiente_revision').length;
 
-    return [
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Pagos VITI', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text('Control económico y revisión de comprobantes del cliente.', style: TextStyle(color: muted))])),
-          IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh)),
-        ],
-      ),
-      const SizedBox(height: 18),
-      Wrap(spacing: 12, runSpacing: 12, children: [
-        _PaymentStat('Por cobrar', _money(summary['por_cobrar_proyectos']), Icons.account_balance_wallet_outlined),
-        _PaymentStat('Comprobantes pendientes', '${summary['comprobantes_pendientes'] ?? 0}', Icons.receipt_long_outlined),
-        _PaymentStat('Suscripciones activas', '${summary['suscripciones_activas'] ?? 0}', Icons.autorenew),
-        _PaymentStat('Recurrente mensual', _money(summary['ingreso_recurrente_mensual']), Icons.trending_up),
-      ]),
-      const SizedBox(height: 22),
-      Row(children: [const Expanded(child: Text('Comprobantes por revisar', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900))), Chip(label: Text('${pending.length} pendientes'))]),
-      const SizedBox(height: 8),
-      if (pending.isEmpty)
-        Card(child: Padding(padding: const EdgeInsets.all(20), child: Row(children: [const Icon(Icons.task_alt), const SizedBox(width: 10), Expanded(child: Text('No hay comprobantes pendientes de revisión.', style: TextStyle(color: muted)))]))),
-      for (final proof in pending) _proofCard(proof),
-      const SizedBox(height: 22),
-      const Text('Últimos comprobantes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 8),
-      if (proofs.isEmpty) Card(child: Padding(padding: const EdgeInsets.all(20), child: Text('Todavía no hay comprobantes registrados.', style: TextStyle(color: muted)))),
-      for (final proof in proofs.take(20)) _proofCard(proof),
-      const SizedBox(height: 22),
-      const Text('Proyectos y saldos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 8),
-      for (final project in projects)
-        Card(child: ListTile(title: Text('${_text(project['codigo'], 'PRO')} · ${_text(project['nombre'], 'Proyecto')}'), subtitle: Text('${_text(_map(project['empresa'])['nombre_comercial'], 'Sin empresa')} · Pendiente ${_money(project['pendiente'])}'), trailing: Chip(label: Text(_pretty(project['estado_pago']))))),
-    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 1080;
+        final header = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            VitiPageHeader(title: 'Pagos VITI', subtitle: 'Control económico, comprobantes y saldos con revisión antes de afectar los importes.', actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))]),
+            const SizedBox(height: 18),
+            Wrap(spacing: 12, runSpacing: 12, children: [VitiMetricTile(label: 'Por cobrar', value: _money(summary['por_cobrar_proyectos']), icon: Icons.account_balance_wallet_outlined, tone: VitiTone.warning), VitiMetricTile(label: 'Comprobantes pendientes', value: '$pending', icon: Icons.receipt_long_outlined, tone: VitiTone.warning), VitiMetricTile(label: 'Suscripciones activas', value: '${summary['suscripciones_activas'] ?? 0}', icon: Icons.autorenew, tone: VitiTone.success), VitiMetricTile(label: 'Recurrente mensual', value: _money(summary['ingreso_recurrente_mensual']), icon: Icons.trending_up, tone: VitiTone.info)]),
+            const SizedBox(height: 16),
+            VitiSearchField(controller: searchController, hint: 'Buscar comprobante, empresa, pagador o proyecto…', onChanged: (value) => setState(() => query = value), width: 430),
+            const SizedBox(height: 14),
+          ],
+        );
+
+        final list = VitiPanel(
+          padding: const EdgeInsets.all(10),
+          child: visible.isEmpty
+              ? const VitiEmptyState(title: 'Sin comprobantes', message: 'No hay resultados para la búsqueda actual.', icon: Icons.receipt_long_outlined)
+              : ListView.builder(
+                  shrinkWrap: !desktop,
+                  physics: desktop ? const ClampingScrollPhysics() : const NeverScrollableScrollPhysics(),
+                  itemCount: visible.length,
+                  itemBuilder: (context, index) => _proofRow(visible[index], desktop: desktop),
+                ),
+        );
+
+        final content = desktop
+            ? SizedBox(height: constraints.maxHeight - 270, child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(flex: 6, child: list), const SizedBox(width: 14), Expanded(flex: 4, child: selectedProof == null ? const VitiEmptyState(title: 'Selecciona un comprobante', message: 'Aquí aparecerán el pagador, archivo, estado y acciones de revisión.', icon: Icons.receipt_long_outlined) : SingleChildScrollView(child: _proofInspector(selectedProof!)))]))
+            : list;
+
+        return RefreshIndicator(
+          onRefresh: _load,
+          child: desktop
+              ? Padding(padding: const EdgeInsets.fromLTRB(24, 22, 24, 30), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [header, Expanded(child: content)]))
+              : ListView(padding: const EdgeInsets.fromLTRB(24, 22, 24, 30), children: [header, content, const SizedBox(height: 28), _projectBalances(projects)]),
+        );
+      },
+    );
   }
 
-  Widget _proofCard(Map<String, dynamic> wrapper) {
+  Widget _proofRow(Map<String, dynamic> wrapper, {required bool desktop}) {
     final payment = _map(wrapper['pago']);
     final parent = _map(wrapper['padre']);
     final company = _map(wrapper['empresa']);
     final payer = _map(payment['pagador']);
     final type = _text(wrapper['tipo'], 'proyecto');
-    final pending = _text(payment['estado_revision'], '') == 'pendiente_revision';
-    final colors = Theme.of(context).colorScheme;
-    final status = _pretty(payment['estado_revision']);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 9),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _showProof(wrapper),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: pending ? colors.tertiaryContainer : colors.primaryContainer,
-                foregroundColor: pending ? colors.onTertiaryContainer : colors.onPrimaryContainer,
-                child: Icon(_fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], ''))),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${_money(payment['monto'])} · ${type == 'suscripcion' ? 'Suscripción' : _text(parent['codigo'], 'Proyecto')}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 2),
-                  Text('${_text(company['nombre_comercial'], 'Sin empresa')} · ${_text(payer['nombre'], _text(payer['usuario'], 'Pagador'))}', style: TextStyle(color: colors.onSurfaceVariant)),
-                  const SizedBox(height: 2),
-                  Text('${_pretty(payment['metodo'])} · ${_date(payment['fecha_pago'])} · ${_text(payment['comprobante_nombre'], 'Sin archivo identificado')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
-                ]),
-              ),
-              Chip(label: Text(status)),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
+    final status = '${payment['estado_revision'] ?? 'pendiente_revision'}';
+    return VitiEntityRow(
+      title: '${_money(payment['monto'])} · ${type == 'suscripcion' ? 'Suscripción' : _text(parent['codigo'], 'Proyecto')}',
+      subtitle: '${_text(company['nombre_comercial'], 'Sin empresa')} · ${_text(payer['nombre'], _text(payer['usuario'], 'Pagador'))}\n${_pretty(payment['metodo'])} · ${_date(payment['fecha_pago'])}',
+      icon: _fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], '')),
+      selected: selectedProof != null && _int(_map(selectedProof!['pago'])['id']) == _int(payment['id']) && _text(selectedProof!['tipo'], '') == type,
+      badges: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status)), VitiStatusBadge(type == 'suscripcion' ? 'Suscripción' : 'Proyecto', tone: VitiTone.info)],
+      onTap: () {
+        if (desktop) {
+          setState(() => selectedProof = wrapper);
+        } else {
+          _showProof(wrapper);
+        }
+      },
     );
+  }
+
+  Widget _proofInspector(Map<String, dynamic> wrapper) {
+    final payment = _map(wrapper['pago']);
+    final parent = _map(wrapper['padre']);
+    final company = _map(wrapper['empresa']);
+    final payer = _map(payment['pagador']);
+    final type = _text(wrapper['tipo'], 'proyecto');
+    final status = '${payment['estado_revision'] ?? 'pendiente_revision'}';
+    final pending = status == 'pendiente_revision';
+    return VitiInspector(
+      title: _text(payment['comprobante_nombre'], 'Comprobante'),
+      subtitle: '${_money(payment['monto'])} · ${type == 'suscripcion' ? 'Suscripción' : _text(parent['codigo'], 'Proyecto')}',
+      icon: _fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], '')),
+      badges: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status))],
+      children: [
+        Container(
+          height: 150,
+          width: double.infinity,
+          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(_fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], '')), size: 44, color: Theme.of(context).colorScheme.primary), const SizedBox(height: 8), Text(_text(payment['comprobante_mime'], 'Archivo'), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 4), const Text('Vista integrada del archivo: siguiente etapa', style: TextStyle(fontSize: 10))]),
+        ),
+        const SizedBox(height: 16),
+        VitiKeyValue('Pagador', _text(payer['nombre'], _text(payer['usuario'], 'No identificado')), icon: Icons.person_outline),
+        VitiKeyValue('Empresa', _text(company['nombre_comercial'], 'Sin empresa'), icon: Icons.business_outlined),
+        VitiKeyValue(type == 'suscripcion' ? 'Plan' : 'Proyecto', type == 'suscripcion' ? _text(parent['plan'], 'Suscripción VITI') : '${_text(parent['codigo'], 'PRO')} · ${_text(parent['nombre'], 'Proyecto')}', icon: type == 'suscripcion' ? Icons.autorenew : Icons.account_tree_outlined),
+        VitiKeyValue('Método y fecha', '${_pretty(payment['metodo'])} · ${_date(payment['fecha_pago'])}', icon: Icons.calendar_today_outlined),
+        if (_text(payment['motivo_revision'], '').isNotEmpty) VitiKeyValue('Motivo de revisión', _text(payment['motivo_revision'], ''), icon: Icons.info_outline),
+      ],
+      actions: [
+        OutlinedButton.icon(onPressed: () => _showProof(wrapper), icon: const Icon(Icons.open_in_new), label: const Text('Abrir ficha')),
+        if (pending) TextButton.icon(onPressed: () => _rejectProof(wrapper), icon: const Icon(Icons.close), label: const Text('Rechazar')),
+        if (pending) FilledButton.icon(onPressed: () => _confirmProof(wrapper), icon: const Icon(Icons.check), label: const Text('Confirmar pago')),
+      ],
+    );
+  }
+
+  Widget _projectBalances(List<Map<String, dynamic>> projects) {
+    return VitiPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Proyectos y saldos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), const SizedBox(height: 10), for (final project in projects.take(12)) ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.account_tree_outlined), title: Text('${_text(project['codigo'], 'PRO')} · ${_text(project['nombre'], 'Proyecto')}', style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text('${_text(_map(project['empresa'])['nombre_comercial'], 'Sin empresa')} · Pendiente ${_money(project['pendiente'])}'), trailing: VitiStatusBadge(vitiPretty('${project['estado_pago'] ?? ''}'), tone: vitiToneForStatus('${project['estado_pago'] ?? ''}')))]));
   }
 
   Future<void> _showProof(Map<String, dynamic> wrapper) async {
@@ -271,77 +318,20 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     final company = _map(wrapper['empresa']);
     final payer = _map(payment['pagador']);
     final type = _text(wrapper['tipo'], 'proyecto');
-    final pending = _text(payment['estado_revision'], '') == 'pendiente_revision';
-    final colors = Theme.of(context).colorScheme;
-
+    final status = '${payment['estado_revision'] ?? ''}';
+    final pending = status == 'pendiente_revision';
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(type == 'suscripcion' ? 'Comprobante de suscripción' : 'Comprobante · ${_text(parent['codigo'], 'Proyecto')}'),
-        content: SizedBox(
-          width: 660,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: colors.surfaceContainer, borderRadius: BorderRadius.circular(16)),
-                  child: Row(children: [
-                    CircleAvatar(radius: 28, child: Icon(_fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], '')), size: 28)),
-                    const SizedBox(width: 14),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_text(payment['comprobante_nombre'], 'Archivo de comprobante'), style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(_text(payment['comprobante_mime'], 'Formato no identificado'), style: TextStyle(color: colors.onSurfaceVariant))])),
-                  ]),
-                ),
-                const SizedBox(height: 16),
-                Wrap(spacing: 12, runSpacing: 12, children: [
-                  _ProofField('Monto', _money(payment['monto'])),
-                  _ProofField('Método', _pretty(payment['metodo'])),
-                  _ProofField('Fecha', _date(payment['fecha_pago'])),
-                  _ProofField('Estado', _pretty(payment['estado_revision'])),
-                  _ProofField('Empresa', _text(company['nombre_comercial'], 'Sin empresa')),
-                  _ProofField('Pagador', _text(payer['nombre'], _text(payer['usuario'], 'No identificado'))),
-                  _ProofField(type == 'suscripcion' ? 'Plan' : 'Proyecto', type == 'suscripcion' ? _text(parent['plan'], 'Suscripción VITI') : '${_text(parent['codigo'], 'PRO')} · ${_text(parent['nombre'], 'Proyecto')}'),
-                  _ProofField('Origen', _pretty(payment['origen'])),
-                ]),
-                if (_text(payment['motivo_revision'], '').isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Text('Motivo de revisión', style: TextStyle(color: colors.onSurfaceVariant, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  SelectableText(_text(payment['motivo_revision'], '')),
-                ],
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          if (pending)
-            TextButton.icon(
-              onPressed: () async {
-                Navigator.pop(dialogContext);
-                await _rejectProof(wrapper);
-              },
-              icon: const Icon(Icons.close),
-              label: const Text('Rechazar'),
-            ),
-          if (pending)
-            FilledButton.icon(
-              onPressed: () async {
-                Navigator.pop(dialogContext);
-                await _confirmProof(wrapper);
-              },
-              icon: const Icon(Icons.check),
-              label: const Text('Confirmar pago'),
-            ),
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar')),
-        ],
+        content: SizedBox(width: 700, child: VitiPanel(child: Wrap(spacing: 24, runSpacing: 8, children: [SizedBox(width: 210, child: VitiKeyValue('Monto', _money(payment['monto']), icon: Icons.payments_outlined)), SizedBox(width: 210, child: VitiKeyValue('Método', _pretty(payment['metodo']), icon: Icons.account_balance_outlined)), SizedBox(width: 210, child: VitiKeyValue('Fecha', _date(payment['fecha_pago']), icon: Icons.calendar_today_outlined)), SizedBox(width: 210, child: VitiKeyValue('Estado', vitiPretty(status), icon: Icons.fact_check_outlined)), SizedBox(width: 210, child: VitiKeyValue('Empresa', _text(company['nombre_comercial'], 'Sin empresa'), icon: Icons.business_outlined)), SizedBox(width: 210, child: VitiKeyValue('Pagador', _text(payer['nombre'], _text(payer['usuario'], 'No identificado')), icon: Icons.person_outline)), SizedBox(width: 440, child: VitiKeyValue('Archivo', _text(payment['comprobante_nombre'], 'Sin archivo identificado'), icon: _fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], ''))))]))),
+        actions: [if (pending) TextButton.icon(onPressed: () {Navigator.pop(dialogContext); _rejectProof(wrapper);}, icon: const Icon(Icons.close), label: const Text('Rechazar')), if (pending) FilledButton.icon(onPressed: () {Navigator.pop(dialogContext); _confirmProof(wrapper);}, icon: const Icon(Icons.check), label: const Text('Confirmar pago')), TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar'))],
       ),
     );
   }
 
   Future<void> _confirmProof(Map<String, dynamic> wrapper) async {
-    final payment = _map(wrapper['pago']);
-    final id = _int(payment['id']);
+    final id = _int(_map(wrapper['pago'])['id']);
     if (id <= 0) return;
     try {
       if (_text(wrapper['tipo'], 'proyecto') == 'suscripcion') {
@@ -363,15 +353,8 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Rechazar comprobante'),
-        content: SizedBox(width: 500, child: TextField(controller: reason, autofocus: true, minLines: 3, maxLines: 5, decoration: const InputDecoration(labelText: 'Motivo para el cliente *', border: OutlineInputBorder()))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
-          FilledButton(onPressed: () {
-            final text = reason.text.trim();
-            if (text.length < 5) return;
-            Navigator.pop(dialogContext, text);
-          }, child: const Text('Rechazar')),
-        ],
+        content: SizedBox(width: 500, child: TextField(controller: reason, autofocus: true, minLines: 3, maxLines: 5, decoration: const InputDecoration(labelText: 'Motivo para el cliente *'))),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')), FilledButton(onPressed: () {final text = reason.text.trim(); if (text.length < 5) return; Navigator.pop(dialogContext, text);}, child: const Text('Rechazar'))],
       ),
     );
     reason.dispose();
@@ -413,49 +396,12 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
   }
 }
 
-class _Money extends StatelessWidget {
-  const _Money({required this.label, required this.value});
-  final String label;
-  final dynamic value;
-  @override
-  Widget build(BuildContext context) => SizedBox(width: 150, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)), Text(_money(value), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))]));
-}
-
-class _PaymentStat extends StatelessWidget {
-  const _PaymentStat(this.label, this.value, this.icon);
-  final String label;
-  final String value;
-  final IconData icon;
-  @override
-  Widget build(BuildContext context) => SizedBox(width: 230, child: Card(child: Padding(padding: const EdgeInsets.all(18), child: Row(children: [CircleAvatar(child: Icon(icon)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(value, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)), Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))]))]))));
-}
-
-class _ProofField extends StatelessWidget {
-  const _ProofField(this.label, this.value);
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 200,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 3), Text(value, style: const TextStyle(fontWeight: FontWeight.w700))]),
-      );
-}
-
-class _PaymentError extends StatelessWidget {
-  const _PaymentError({required this.message, required this.retry});
-  final String message;
-  final Future<void> Function() retry;
-  @override
-  Widget build(BuildContext context) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text(message), const SizedBox(height: 12), FilledButton.icon(onPressed: retry, icon: const Icon(Icons.refresh), label: const Text('Reintentar'))]));
-}
-
 Map<String, dynamic> _map(dynamic value) => value is Map<String, dynamic> ? value : <String, dynamic>{};
 List<Map<String, dynamic>> _items(dynamic value) => value is List ? value.whereType<Map<String, dynamic>>().toList(growable: false) : const <Map<String, dynamic>>[];
 String _text(dynamic value, String fallback) => value == null || value.toString().trim().isEmpty ? fallback : value.toString();
-String _pretty(dynamic value) => _text(value, 'Sin estado').replaceAll('_', ' ');
-String _money(dynamic value) => '${(double.tryParse('${value ?? 0}') ?? 0).toStringAsFixed(2)} Bs';
+String _pretty(dynamic value) => vitiPretty(_text(value, 'Sin estado'));
+double _number(dynamic value) => double.tryParse('${value ?? 0}') ?? 0;
+String _money(dynamic value) => '${_number(value).toStringAsFixed(2)} Bs';
 String _date(dynamic value) {
   final parsed = DateTime.tryParse('${value ?? ''}')?.toLocal();
   if (parsed == null) return 'No definida';
