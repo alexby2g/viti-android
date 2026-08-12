@@ -37,6 +37,22 @@ class ApiClient {
     return _send('POST', path, body: body, authenticated: authenticated);
   }
 
+  Future<Map<String, dynamic>> putJson(
+    String path,
+    Map<String, dynamic> body, {
+    bool authenticated = true,
+  }) {
+    return _send('PUT', path, body: body, authenticated: authenticated);
+  }
+
+  Future<Map<String, dynamic>> deleteJson(
+    String path, {
+    Map<String, dynamic>? body,
+    bool authenticated = true,
+  }) {
+    return _send('DELETE', path, body: body, authenticated: authenticated);
+  }
+
   Future<Map<String, String>> _headers({required bool authenticated, bool json = true}) async {
     final headers = <String, String>{'Accept': 'application/json'};
     if (json) headers['Content-Type'] = 'application/json';
