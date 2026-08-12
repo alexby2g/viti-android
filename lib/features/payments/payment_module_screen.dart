@@ -163,7 +163,7 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     final state = '${project['estado_pago'] ?? 'pendiente'}';
     final agreed = _number(project['precio_acordado']);
     final paid = _number(project['pagado']);
-    final ratio = agreed <= 0 ? 0.0 : (paid / agreed).clamp(0, 1);
+    final ratio = agreed <= 0 ? 0.0 : (paid / agreed).clamp(0.0, 1.0).toDouble();
     return VitiPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,6 +286,11 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
       subtitle: '${_money(payment['monto'])} · ${type == 'suscripcion' ? 'Suscripción' : _text(parent['codigo'], 'Proyecto')}',
       icon: _fileIcon(_text(payment['comprobante_mime'], ''), _text(payment['comprobante_nombre'], '')),
       badges: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status))],
+      actions: [
+        OutlinedButton.icon(onPressed: () => _showProof(wrapper), icon: const Icon(Icons.open_in_new), label: const Text('Abrir ficha')),
+        if (pending) TextButton.icon(onPressed: () => _rejectProof(wrapper), icon: const Icon(Icons.close), label: const Text('Rechazar')),
+        if (pending) FilledButton.icon(onPressed: () => _confirmProof(wrapper), icon: const Icon(Icons.check), label: const Text('Confirmar pago')),
+      ],
       children: [
         Container(
           height: 150,
@@ -299,11 +304,6 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
         VitiKeyValue(type == 'suscripcion' ? 'Plan' : 'Proyecto', type == 'suscripcion' ? _text(parent['plan'], 'Suscripción VITI') : '${_text(parent['codigo'], 'PRO')} · ${_text(parent['nombre'], 'Proyecto')}', icon: type == 'suscripcion' ? Icons.autorenew : Icons.account_tree_outlined),
         VitiKeyValue('Método y fecha', '${_pretty(payment['metodo'])} · ${_date(payment['fecha_pago'])}', icon: Icons.calendar_today_outlined),
         if (_text(payment['motivo_revision'], '').isNotEmpty) VitiKeyValue('Motivo de revisión', _text(payment['motivo_revision'], ''), icon: Icons.info_outline),
-      ],
-      actions: [
-        OutlinedButton.icon(onPressed: () => _showProof(wrapper), icon: const Icon(Icons.open_in_new), label: const Text('Abrir ficha')),
-        if (pending) TextButton.icon(onPressed: () => _rejectProof(wrapper), icon: const Icon(Icons.close), label: const Text('Rechazar')),
-        if (pending) FilledButton.icon(onPressed: () => _confirmProof(wrapper), icon: const Icon(Icons.check), label: const Text('Confirmar pago')),
       ],
     );
   }
