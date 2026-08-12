@@ -351,6 +351,11 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
       subtitle: _rowSubtitle(kind, row).replaceAll('\n', ' · '),
       icon: _kindIcon(kind),
       badges: _rowBadges(kind, row),
+      actions: [
+        FilledButton.icon(onPressed: () => _openDetails(kind, row), icon: const Icon(Icons.open_in_new), label: const Text('Abrir detalle')),
+        if (kind == 'proyecto') OutlinedButton.icon(onPressed: () => _showAddProgress(row), icon: const Icon(Icons.add_task), label: const Text('Registrar avance')),
+        if (kind == 'aplicacion') OutlinedButton.icon(onPressed: () => _openDetails(kind, row), icon: const Icon(Icons.tune), label: const Text('Operar app')),
+      ],
       children: [
         for (final field in fields) VitiKeyValue(field.$1, field.$2, icon: field.$3),
         if (kind == 'proyecto') ...[
@@ -360,11 +365,6 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
             child: LinearProgressIndicator(value: (_int(row['progreso']).clamp(0, 100)) / 100, minHeight: 7),
           ),
         ],
-      ],
-      actions: [
-        FilledButton.icon(onPressed: () => _openDetails(kind, row), icon: const Icon(Icons.open_in_new), label: const Text('Abrir detalle')),
-        if (kind == 'proyecto') OutlinedButton.icon(onPressed: () => _showAddProgress(row), icon: const Icon(Icons.add_task), label: const Text('Registrar avance')),
-        if (kind == 'aplicacion') OutlinedButton.icon(onPressed: () => _openDetails(kind, row), icon: const Icon(Icons.tune), label: const Text('Operar app')),
       ],
     );
   }
