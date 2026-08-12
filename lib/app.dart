@@ -29,57 +29,9 @@ class VitiApp extends StatelessWidget {
         theme: VitiTheme.light(),
         darkTheme: VitiTheme.dark(),
         themeMode: appearance.mode,
-        builder: (context, child) {
-          if (!session.authenticated) return child ?? const SizedBox.shrink();
-          return Stack(
-            children: [
-              Positioned.fill(child: child ?? const SizedBox.shrink()),
-              Positioned(
-                right: 14,
-                bottom: 14,
-                child: SafeArea(child: _AppearanceCycleButton(controller: appearance)),
-              ),
-            ],
-          );
-        },
         home: session.authenticated
-            ? HomeShell(session: session, repository: repository)
+            ? HomeShell(session: session, repository: repository, appearance: appearance)
             : LoginScreen(session: session, appearance: appearance),
-      ),
-    );
-  }
-}
-
-class _AppearanceCycleButton extends StatelessWidget {
-  const _AppearanceCycleButton({required this.controller});
-
-  final AppearanceController controller;
-
-  IconData get _icon => switch (controller.mode) {
-        ThemeMode.light => Icons.light_mode_outlined,
-        ThemeMode.dark => Icons.dark_mode_outlined,
-        ThemeMode.system => Icons.brightness_auto_outlined,
-      };
-
-  ThemeMode get _next => switch (controller.mode) {
-        ThemeMode.system => ThemeMode.light,
-        ThemeMode.light => ThemeMode.dark,
-        ThemeMode.dark => ThemeMode.system,
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      elevation: 5,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => controller.setMode(_next),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(_icon, size: 21),
-        ),
       ),
     );
   }
