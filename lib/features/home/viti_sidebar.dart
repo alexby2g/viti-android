@@ -58,27 +58,36 @@ class VitiSidebar extends StatelessWidget {
         child: Column(
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(collapsed ? 12 : 16, 16, collapsed ? 12 : 10, 12),
-              child: Row(
-                children: [
-                  _BrandMark(collapsed: collapsed),
-                  if (!collapsed) ...[
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Contraer menú',
-                      onPressed: onToggleCollapsed,
-                      icon: const Icon(Icons.keyboard_double_arrow_left),
+              padding: EdgeInsets.fromLTRB(collapsed ? 6 : 16, 16, collapsed ? 6 : 10, 12),
+              child: collapsed
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const _BrandMark(collapsed: true),
+                        SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: IconButton(
+                            tooltip: 'Expandir menú',
+                            onPressed: onToggleCollapsed,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                            icon: const Icon(Icons.keyboard_double_arrow_right, size: 18),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        const _BrandMark(collapsed: false),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: 'Contraer menú',
+                          onPressed: onToggleCollapsed,
+                          icon: const Icon(Icons.keyboard_double_arrow_left),
+                        ),
+                      ],
                     ),
-                  ] else
-                    const Spacer(),
-                  if (collapsed)
-                    IconButton(
-                      tooltip: 'Expandir menú',
-                      onPressed: onToggleCollapsed,
-                      icon: const Icon(Icons.keyboard_double_arrow_right, size: 19),
-                    ),
-                ],
-              ),
             ),
             if (!collapsed && companyName != null)
               Padding(
