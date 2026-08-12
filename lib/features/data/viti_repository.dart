@@ -20,7 +20,9 @@ class VitiRepository {
 
   Future<void> selectCompany(int companyId) async {
     final companies = await clientCompanies();
-    if (!companies.any((company) => _int(company['id']) == companyId)) throw const ApiException('No tienes acceso a esa empresa.');
+    if (!companies.any((company) => _int(company['id']) == companyId)) {
+      throw const ApiException('No tienes acceso a esa empresa.');
+    }
     await _api.selectCompany(companyId);
   }
 
@@ -110,6 +112,14 @@ class VitiRepository {
     return _map(response['data']);
   }
 
+  Future<Map<String, dynamic>> updateAdminAppCycle({required int appId, required String environment, required String state}) async {
+    final response = await _api.postJson('/aplicaciones/$appId/ciclo', <String, dynamic>{'entorno': environment, 'estado': state});
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> deliverAdminApp(int appId) async => _map((await _api.postJson('/aplicaciones/$appId/entregar', const <String, dynamic>{}))['data']);
+  Future<Map<String, dynamic>> revokeAdminApp(int appId) async => _map((await _api.postJson('/aplicaciones/$appId/revocar', const <String, dynamic>{}))['data']);
+
   Future<Map<String, dynamic>> adminBilling() async => _map((await _api.getJson('/pagos'))['data']);
   Future<List<Map<String, dynamic>>> adminInbox() async => _list((await _api.getJson('/buzon?per_page=100'))['data']);
   Future<Map<String, dynamic>> adminConversation(int id) async => _map((await _api.getJson('/buzon/$id'))['data']);
@@ -123,40 +133,49 @@ class VitiRepository {
   Future<void> sendSupportMessage(int id, String message) async => _api.postJson('/soporte/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
   Future<void> sendSupportFile(int id, {required String filePath, required String fileName, String message = ''}) async => _api.postMultipart('/soporte/buzon/$id/mensajes', fields: message.trim().isEmpty ? const <String, String>{} : <String, String>{'mensaje': message.trim()}, fileField: 'archivo', filePath: filePath, fileName: fileName);
 
-  String _businessAppBase(String key) {
+  String _businessAppBase(String key, {required bool admin}) {
+    final prefix = admin ? '/apps' : '/mi/apps';
     switch (key) {
       case 'servicio-tecnico':
-        return '/mi/apps/servicio-tecnico';
+        return '$prefix/servicio-tecnico';
       case 'electrofrio':
-        return '/mi/apps/electrofrio';
+        return '$prefix/electrofrio';
       default:
         throw const ApiException('Esta VITI App todavía no tiene integración nativa.');
     }
   }
 
-  Future<Map<String, dynamic>> businessAppState(String key) async {
+  Future<void> _prepareBusinessContext({required bool admin, int? companyId}) async {
+    if (admin) {
+      if (companyId == null || companyId <= 0) throw const ApiException('Selecciona la empresa que quieres administrar.');
+      return;
+    }
     await _ensureClientCompany();
-    return _map((await _api.getJson('${_businessAppBase(key)}/estado'))['data']);
   }
 
-  Future<Map<String, dynamic>> businessAppSummary(String key) async {
-    await _ensureClientCompany();
-    return _map((await _api.getJson('${_businessAppBase(key)}/resumen'))['data']);
+  Future<Map<String, dynamic>> businessAppState(String key, {bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    return _map((await _api.getJson('${_businessAppBase(key, admin: admin)}/estado', companyId: companyId))['data']);
   }
 
-  Future<List<Map<String, dynamic>>> businessAppList(String key, String resource) async {
-    await _ensureClientCompany();
-    return _list((await _api.getJson('${_businessAppBase(key)}/$resource'))['data']);
+  Future<Map<String, dynamic>> businessAppSummary(String key, {bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    return _map((await _api.getJson('${_businessAppBase(key, admin: admin)}/resumen', companyId: companyId))['data']);
   }
 
-  Future<Map<String, dynamic>> technicalReferences() async {
-    await _ensureClientCompany();
-    return _map((await _api.getJson('/mi/apps/servicio-tecnico/referencias'))['data']);
+  Future<List<Map<String, dynamic>>> businessAppList(String key, String resource, {bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    return _list((await _api.getJson('${_businessAppBase(key, admin: admin)}/$resource', companyId: companyId))['data']);
   }
 
-  Future<List<Map<String, dynamic>>> technicalBusinessUsers() async {
-    await _ensureClientCompany();
-    return _list((await _api.getJson('/mi/apps/servicio-tecnico/usuarios-negocio'))['data']);
+  Future<Map<String, dynamic>> technicalReferences({bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    return _map((await _api.getJson('${_businessAppBase('servicio-tecnico', admin: admin)}/referencias', companyId: companyId))['data']);
+  }
+
+  Future<List<Map<String, dynamic>>> technicalBusinessUsers({bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    return _list((await _api.getJson('${_businessAppBase('servicio-tecnico', admin: admin)}/usuarios-negocio', companyId: companyId))['data']);
   }
 
   Future<Map<String, dynamic>> createTechnicalClient({
@@ -166,16 +185,18 @@ class VitiRepository {
     String? address,
     String? notes,
     bool active = true,
+    bool admin = false,
+    int? companyId,
   }) async {
-    await _ensureClientCompany();
-    final response = await _api.postJson('/mi/apps/servicio-tecnico/clientes', <String, dynamic>{
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postJson('${_businessAppBase('servicio-tecnico', admin: admin)}/clientes', <String, dynamic>{
       'nombre': name.trim(),
       if (phone != null && phone.trim().isNotEmpty) 'telefono': phone.trim(),
       if (whatsapp != null && whatsapp.trim().isNotEmpty) 'whatsapp': whatsapp.trim(),
       if (address != null && address.trim().isNotEmpty) 'direccion': address.trim(),
       if (notes != null && notes.trim().isNotEmpty) 'observaciones': notes.trim(),
       'activo': active,
-    });
+    }, companyId: companyId);
     return _map(response['data']);
   }
 
@@ -187,16 +208,18 @@ class VitiRepository {
     String? address,
     String? notes,
     bool active = true,
+    bool admin = false,
+    int? companyId,
   }) async {
-    await _ensureClientCompany();
-    final response = await _api.putJson('/mi/apps/servicio-tecnico/clientes/$id', <String, dynamic>{
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.putJson('${_businessAppBase('servicio-tecnico', admin: admin)}/clientes/$id', <String, dynamic>{
       'nombre': name.trim(),
       'telefono': _nullableText(phone),
       'whatsapp': _nullableText(whatsapp),
       'direccion': _nullableText(address),
       'observaciones': _nullableText(notes),
       'activo': active,
-    });
+    }, companyId: companyId);
     return _map(response['data']);
   }
 
@@ -211,9 +234,11 @@ class VitiRepository {
     String? receptionState,
     String? notes,
     bool active = true,
+    bool admin = false,
+    int? companyId,
   }) async {
-    await _ensureClientCompany();
-    final response = await _api.postJson('/mi/apps/servicio-tecnico/equipos', <String, dynamic>{
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postJson('${_businessAppBase('servicio-tecnico', admin: admin)}/equipos', <String, dynamic>{
       'cliente_id': clientId,
       'tipo': type.trim(),
       'marca': _nullableText(brand),
@@ -224,7 +249,7 @@ class VitiRepository {
       'estado_recepcion': _nullableText(receptionState),
       'observaciones': _nullableText(notes),
       'activo': active,
-    });
+    }, companyId: companyId);
     return _map(response['data']);
   }
 
@@ -240,9 +265,11 @@ class VitiRepository {
     String? receptionState,
     String? notes,
     bool active = true,
+    bool admin = false,
+    int? companyId,
   }) async {
-    await _ensureClientCompany();
-    final response = await _api.putJson('/mi/apps/servicio-tecnico/equipos/$id', <String, dynamic>{
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.putJson('${_businessAppBase('servicio-tecnico', admin: admin)}/equipos/$id', <String, dynamic>{
       'cliente_id': clientId,
       'tipo': type.trim(),
       'marca': _nullableText(brand),
@@ -253,7 +280,7 @@ class VitiRepository {
       'estado_recepcion': _nullableText(receptionState),
       'observaciones': _nullableText(notes),
       'activo': active,
-    });
+    }, companyId: companyId);
     return _map(response['data']);
   }
 
@@ -263,15 +290,17 @@ class VitiRepository {
     String? phone,
     String? specialty,
     bool active = true,
+    bool admin = false,
+    int? companyId,
   }) async {
-    await _ensureClientCompany();
-    final response = await _api.postJson('/mi/apps/servicio-tecnico/tecnicos', <String, dynamic>{
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postJson('${_businessAppBase('servicio-tecnico', admin: admin)}/tecnicos', <String, dynamic>{
       'usuario_id': userId,
       'nombre': name.trim(),
       'telefono': _nullableText(phone),
       'especialidad': _nullableText(specialty),
       'activo': active,
-    });
+    }, companyId: companyId);
     return _map(response['data']);
   }
 
@@ -282,15 +311,17 @@ class VitiRepository {
     String? phone,
     String? specialty,
     bool active = true,
+    bool admin = false,
+    int? companyId,
   }) async {
-    await _ensureClientCompany();
-    final response = await _api.putJson('/mi/apps/servicio-tecnico/tecnicos/$id', <String, dynamic>{
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.putJson('${_businessAppBase('servicio-tecnico', admin: admin)}/tecnicos/$id', <String, dynamic>{
       'usuario_id': userId,
       'nombre': name.trim(),
       'telefono': _nullableText(phone),
       'especialidad': _nullableText(specialty),
       'activo': active,
-    });
+    }, companyId: companyId);
     return _map(response['data']);
   }
 
@@ -304,9 +335,11 @@ class VitiRepository {
     required String priority,
     required String reportedProblem,
     double? serviceCost,
+    bool admin = false,
+    int? companyId,
   }) async {
-    await _ensureClientCompany();
-    final response = await _api.postJson('/mi/apps/servicio-tecnico/ordenes', <String, dynamic>{
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postJson('${_businessAppBase('servicio-tecnico', admin: admin)}/ordenes', <String, dynamic>{
       'cliente_id': clientId,
       'equipo_id': equipmentId,
       'tecnico_id': technicianId,
@@ -317,7 +350,7 @@ class VitiRepository {
       'problema_reportado': reportedProblem.trim(),
       'costo_servicio': serviceCost,
       'descuento': 0,
-    });
+    }, companyId: companyId);
     return _map(response['data']);
   }
 
@@ -337,9 +370,11 @@ class VitiRepository {
     String? recommendations,
     double? serviceCost,
     double? discount,
+    bool admin = false,
+    int? companyId,
   }) async {
-    await _ensureClientCompany();
-    final response = await _api.putJson('/mi/apps/servicio-tecnico/ordenes/$id', <String, dynamic>{
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.putJson('${_businessAppBase('servicio-tecnico', admin: admin)}/ordenes/$id', <String, dynamic>{
       'cliente_id': clientId,
       'equipo_id': equipmentId,
       'tecnico_id': technicianId,
@@ -354,18 +389,119 @@ class VitiRepository {
       'recomendaciones': _nullableText(recommendations),
       'costo_servicio': serviceCost,
       'descuento': discount,
-    });
+    }, companyId: companyId);
     return _map(response['data']);
   }
 
-  Future<Map<String, dynamic>> registerTechnicalPayment({required int orderId, required double amount, required String method, String? reference}) async {
-    await _ensureClientCompany();
-    final response = await _api.postJson('/mi/apps/servicio-tecnico/ordenes/$orderId/pagos', <String, dynamic>{
+  Future<Map<String, dynamic>> decideTechnicalOrder({
+    required int orderId,
+    required String decision,
+    String? rejectionReason,
+    bool admin = false,
+    int? companyId,
+  }) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postJson('${_businessAppBase('servicio-tecnico', admin: admin)}/ordenes/$orderId/decision', <String, dynamic>{
+      'decision': decision,
+      if (rejectionReason != null && rejectionReason.trim().isNotEmpty) 'motivo_rechazo': rejectionReason.trim(),
+    }, companyId: companyId);
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> finishTechnicalWork({
+    required int orderId,
+    required String workDone,
+    String? recommendations,
+    int warrantyDays = 0,
+    String? warrantyTerms,
+    bool admin = false,
+    int? companyId,
+  }) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postJson('${_businessAppBase('servicio-tecnico', admin: admin)}/ordenes/$orderId/finalizar-trabajo', <String, dynamic>{
+      'trabajo_realizado': workDone.trim(),
+      'recomendaciones': _nullableText(recommendations),
+      'garantia_dias': warrantyDays,
+      'condiciones_garantia': _nullableText(warrantyTerms),
+    }, companyId: companyId);
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> changeTechnicalOrderState({
+    required int orderId,
+    required String state,
+    bool admin = false,
+    int? companyId,
+  }) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postJson('${_businessAppBase('servicio-tecnico', admin: admin)}/ordenes/$orderId/estado', <String, dynamic>{'estado': state}, companyId: companyId);
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> registerTechnicalPayment({
+    required int orderId,
+    required double amount,
+    required String method,
+    String? reference,
+    bool admin = false,
+    int? companyId,
+  }) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postJson('${_businessAppBase('servicio-tecnico', admin: admin)}/ordenes/$orderId/pagos', <String, dynamic>{
       'monto': amount,
       'metodo': method,
       if (reference != null && reference.trim().isNotEmpty) 'referencia': reference.trim(),
-    });
+    }, companyId: companyId);
     return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> uploadTechnicalEvidence({
+    required int orderId,
+    required String stage,
+    required String filePath,
+    required String fileName,
+    String? description,
+    bool admin = false,
+    int? companyId,
+  }) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    final response = await _api.postMultipart(
+      '${_businessAppBase('servicio-tecnico', admin: admin)}/ordenes/$orderId/evidencias',
+      fields: <String, String>{
+        'etapa': stage,
+        if (description != null && description.trim().isNotEmpty) 'descripcion': description.trim(),
+      },
+      fileField: 'archivo',
+      filePath: filePath,
+      fileName: fileName,
+      companyId: companyId,
+    );
+    return _map(response['data']);
+  }
+
+  Future<void> deleteTechnicalClient(int id, {bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    await _api.deleteJson('${_businessAppBase('servicio-tecnico', admin: admin)}/clientes/$id', companyId: companyId);
+  }
+
+  Future<void> deleteTechnicalEquipment(int id, {bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    await _api.deleteJson('${_businessAppBase('servicio-tecnico', admin: admin)}/equipos/$id', companyId: companyId);
+  }
+
+  Future<void> deleteTechnicalTechnician(int id, {bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    await _api.deleteJson('${_businessAppBase('servicio-tecnico', admin: admin)}/tecnicos/$id', companyId: companyId);
+  }
+
+  Future<void> deleteTechnicalOrder(int id, {bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    await _api.deleteJson('${_businessAppBase('servicio-tecnico', admin: admin)}/ordenes/$id', companyId: companyId);
+  }
+
+  Future<void> deleteTechnicalEvidence(int id, {bool admin = false, int? companyId}) async {
+    await _prepareBusinessContext(admin: admin, companyId: companyId);
+    await _api.deleteJson('${_businessAppBase('servicio-tecnico', admin: admin)}/evidencias/$id', companyId: companyId);
   }
 
   static dynamic _nullableText(String? value) {
