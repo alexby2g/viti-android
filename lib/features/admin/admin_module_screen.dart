@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../apps/business_app_screen.dart';
 import '../data/viti_repository.dart';
 
 class AdminModuleScreen extends StatefulWidget {
@@ -39,30 +40,20 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       loading = true;
       error = null;
     });
     try {
-      switch (widget.module) {
-        case 'inicio':
-          data = await widget.repository.adminDashboard();
-          break;
-        case 'empresas':
-          data = await widget.repository.adminCompanies();
-          break;
-        case 'solicitudes':
-          data = await widget.repository.adminRequests();
-          break;
-        case 'proyectos':
-          data = await widget.repository.adminProjects();
-          break;
-        case 'aplicaciones':
-          data = await widget.repository.adminApps();
-          break;
-        default:
-          data = null;
-      }
+      data = switch (widget.module) {
+        'inicio' => await widget.repository.adminDashboard(),
+        'empresas' => await widget.repository.adminCompanies(),
+        'solicitudes' => await widget.repository.adminRequests(),
+        'proyectos' => await widget.repository.adminProjects(),
+        'aplicaciones' => await widget.repository.adminApps(),
+        _ => null,
+      };
     } on ApiException catch (exception) {
       error = exception.message;
     } catch (_) {
@@ -99,16 +90,9 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _AdminHeader(
-          title: 'Centro de operación VITI',
-          subtitle: 'Trabaja desde aquí: revisa, abre, actualiza y continúa cada proceso.',
-          onRefresh: _load,
-        ),
+        _AdminHeader(title: 'Centro de operación VITI', subtitle: 'Revisa, abre y continúa cada proceso desde un solo lugar.', onRefresh: _load),
         const SizedBox(height: 18),
-        _QuickActions(
-          superadmin: widget.superadmin,
-          onNavigate: widget.onNavigate,
-        ),
+        _QuickActions(superadmin: widget.superadmin, onNavigate: widget.onNavigate),
         const SizedBox(height: 18),
         Wrap(
           spacing: 12,
@@ -178,7 +162,7 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
 
   Widget _apps(List<Map<String, dynamic>> items) => _listPage(
         title: 'Aplicaciones',
-        subtitle: 'Ciclo técnico, operación y entrega de los sistemas.',
+        subtitle: 'Ciclo técnico, operación, acceso y entrega de los sistemas.',
         items: items,
         icon: Icons.apps_outlined,
         kind: 'aplicacion',
@@ -221,49 +205,242 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
     );
   }
 
-  Future<Map<String, dynamic>> _fetchDetails(String kind, int id) {
-    switch (kind) {
-      case 'empresa':
-        return widget.repository.adminCompany(id);
-      case 'solicitud':
-        return widget.repository.adminRequest(id);
-      case 'proyecto':
-        return widget.repository.adminProject(id);
-      case 'aplicacion':
-        return widget.repository.adminApp(id);
-      default:
-        throw const ApiException('Tipo de registro no soportado.');
-    }
-  }
+  Future<Map<String, dynamic>> _fetchDetails(String kind, int id) => switch (kind) {
+        'empresa' => widget.repository.adminCompany(id),
+        'solicitud' => widget.repository.adminRequest(id),
+        'proyecto' => widget.repository.adminProject(id),
+        'aplicacion' => widget.repository.adminApp(id),
+        _ => throw const ApiException('Tipo de registro no soportado.'),
+      };
 
   Future<void> _openDetails(String kind, Map<String, dynamic> row) async {
     final id = _int(row['id']);
     if (id <= 0) return;
+    try {
+      final details = await _fetchDetails(kind, id);
+      if (!mounted) return;
+      if (kind == 'aplicacion') {
+        await _showApplication(details);
+      } else {
+        await _showGenericDetails(kind, details);
+      }
+    } on ApiException catch (exception) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+    }
+  }
+
+  Future<void> _showGenericDetails(String kind, Map<String, dynamic> details) async {
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => Dialog(
         insetPadding: const EdgeInsets.all(32),
-        contentPadding: EdgeInsets.zero,
-        content: SizedBox(
-          width: 760,
-          height: 620,
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: _fetchDetails(kind, id),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-              if (snapshot.hasError) return _DetailError(message: '${snapshot.error}');
-              return _EntityDetails(
-                kind: kind,
-                data: snapshot.data ?? row,
-                onAddProgress: kind == 'proyecto'
-                    ? () {
-                        Navigator.of(dialogContext).pop();
-                        _showAddProgress(snapshot.data ?? row);
-                      }
-                    : null,
-              );
-            },
+        child: SizedBox(
+          width: 780,
+          height: kind == 'proyecto' ? 680 : 520,
+          child: _GenericEntityDetails(
+            kind: kind,
+            data: details,
+            onAddProgress: kind == 'proyecto'
+                ? () {
+                    Navigator.of(dialogContext).pop();
+                    _showAddProgress(details);
+                  }
+                : null,
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showApplication(Map<String, dynamic> source) async {
+    var app = Map<String, dynamic>.from(source);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final company = _map(app['empresa']);
+          final catalog = _map(app['catalogo']);
+          final project = _map(app['proyecto']);
+          final key = _text(catalog['clave'], '');
+          final companyId = _int(app['empresa_id'] ?? company['id']);
+          final native = const {'servicio-tecnico', 'electrofrio'}.contains(key);
+          final colors = Theme.of(context).colorScheme;
+
+          Future<void> refreshApp() async {
+            final refreshed = await widget.repository.adminApp(_int(app['id']));
+            if (dialogContext.mounted) setDialogState(() => app = refreshed);
+            if (mounted) await _load();
+          }
+
+          Future<void> perform(Future<void> Function() action) async {
+            try {
+              await action();
+              await refreshApp();
+            } on ApiException catch (exception) {
+              if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(exception.message)));
+            }
+          }
+
+          return Dialog(
+            insetPadding: const EdgeInsets.all(30),
+            child: SizedBox(
+              width: 860,
+              height: 650,
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(22, 18, 12, 16),
+                    decoration: BoxDecoration(color: colors.surfaceContainerHighest, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
+                    child: Row(
+                      children: [
+                        CircleAvatar(child: const Icon(Icons.apps_outlined)),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_text(app['nombre'], 'Aplicación VITI'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), Text('${_pretty(app['entorno'])} · ${_pretty(app['estado'])}', style: TextStyle(color: colors.onSurfaceVariant))])),
+                        IconButton(onPressed: () => Navigator.of(dialogContext).pop(), icon: const Icon(Icons.close)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(22),
+                      children: [
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            _DetailField(label: 'Versión', value: _text(app['version'], 'Sin versión')),
+                            _DetailField(label: 'Entorno', value: _pretty(app['entorno'])),
+                            _DetailField(label: 'Estado', value: _pretty(app['estado'])),
+                            _DetailField(label: 'Acceso', value: app['acceso_cliente'] == true ? 'Entregada' : 'Pendiente'),
+                            _DetailField(label: 'Empresa', value: _text(company['nombre_comercial'], 'Sin empresa')),
+                            _DetailField(label: 'Proyecto', value: _text(project['nombre'], _text(project['codigo'], 'Sin proyecto'))),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Operación de la aplicación', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                                const SizedBox(height: 6),
+                                Text('Controla el ciclo técnico, acceso y entra al sistema cuando tenga integración nativa.', style: TextStyle(color: colors.onSurfaceVariant)),
+                                const SizedBox(height: 14),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (native && companyId > 0)
+                                      FilledButton.icon(
+                                        onPressed: () async {
+                                          Navigator.of(dialogContext).pop();
+                                          await Navigator.of(context).push(MaterialPageRoute<void>(
+                                            builder: (_) => BusinessAppScreen(
+                                              repository: widget.repository,
+                                              appKey: key,
+                                              appName: _text(app['nombre'], 'VITI App'),
+                                              adminMode: true,
+                                              companyId: companyId,
+                                            ),
+                                          ));
+                                          if (mounted) await _load();
+                                        },
+                                        icon: const Icon(Icons.open_in_new),
+                                        label: const Text('Abrir sistema'),
+                                      ),
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final cycle = await _showAppCycleDialog(app);
+                                        if (cycle == null) return;
+                                        await perform(() async {
+                                          app = await widget.repository.updateAdminAppCycle(
+                                            appId: _int(app['id']),
+                                            environment: '${cycle['entorno']}',
+                                            state: '${cycle['estado']}',
+                                          );
+                                        });
+                                      },
+                                      icon: const Icon(Icons.tune),
+                                      label: const Text('Cambiar ciclo'),
+                                    ),
+                                    if (app['acceso_cliente'] == true)
+                                      OutlinedButton.icon(
+                                        onPressed: () => perform(() async => app = await widget.repository.revokeAdminApp(_int(app['id']))),
+                                        icon: const Icon(Icons.lock_outline),
+                                        label: const Text('Revocar acceso'),
+                                      )
+                                    else
+                                      OutlinedButton.icon(
+                                        onPressed: () => perform(() async => app = await widget.repository.deliverAdminApp(_int(app['id']))),
+                                        icon: const Icon(Icons.key_outlined),
+                                        label: const Text('Entregar acceso'),
+                                      ),
+                                  ],
+                                ),
+                                if (!native) ...[
+                                  const SizedBox(height: 12),
+                                  Text('Esta aplicación todavía no tiene workspace nativo Flutter. El control de ciclo y entrega sí está disponible.', style: TextStyle(color: colors.onSurfaceVariant)),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _showAppCycleDialog(Map<String, dynamic> app) async {
+    var environment = const {'desarrollo', 'beta', 'produccion'}.contains('${app['entorno']}') ? '${app['entorno']}' : 'desarrollo';
+    var state = const {'en_pruebas', 'activo', 'pausado', 'retirado'}.contains('${app['estado']}') ? '${app['estado']}' : 'en_pruebas';
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Ciclo técnico y operativo'),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: environment,
+                  decoration: const InputDecoration(labelText: 'Entorno', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'desarrollo', child: Text('Desarrollo')),
+                    DropdownMenuItem(value: 'beta', child: Text('Beta')),
+                    DropdownMenuItem(value: 'produccion', child: Text('Producción')),
+                  ],
+                  onChanged: (value) => setDialogState(() => environment = value ?? environment),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: state,
+                  decoration: const InputDecoration(labelText: 'Estado operativo', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'en_pruebas', child: Text('En pruebas')),
+                    DropdownMenuItem(value: 'activo', child: Text('Activo')),
+                    DropdownMenuItem(value: 'pausado', child: Text('Pausado')),
+                    DropdownMenuItem(value: 'retirado', child: Text('Retirado')),
+                  ],
+                  onChanged: (value) => setDialogState(() => state = value ?? state),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, <String, dynamic>{'entorno': environment, 'estado': state}), child: const Text('Guardar')),
+          ],
         ),
       ),
     );
@@ -282,7 +459,6 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
 
     await showDialog<void>(
       context: context,
-      barrierDismissible: !saving,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text('Registrar avance · ${_text(project['codigo'], 'Proyecto')}'),
@@ -297,33 +473,13 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
                   TextField(controller: descriptionController, maxLines: 4, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder())),
                   const SizedBox(height: 12),
                   Row(children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: phase,
-                        decoration: const InputDecoration(labelText: 'Fase', border: OutlineInputBorder()),
-                        items: [for (final item in phases) DropdownMenuItem(value: item, child: Text(_pretty(item)))],
-                        onChanged: saving ? null : (value) => setDialogState(() => phase = value ?? phase),
-                      ),
-                    ),
+                    Expanded(child: DropdownButtonFormField<String>(initialValue: phase, decoration: const InputDecoration(labelText: 'Fase', border: OutlineInputBorder()), items: [for (final item in phases) DropdownMenuItem(value: item, child: Text(_pretty(item)))], onChanged: saving ? null : (value) => setDialogState(() => phase = value ?? phase))),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: area,
-                        decoration: const InputDecoration(labelText: 'Área', border: OutlineInputBorder()),
-                        items: [for (final item in areas) DropdownMenuItem(value: item, child: Text(_pretty(item)))],
-                        onChanged: saving ? null : (value) => setDialogState(() => area = value ?? area),
-                      ),
-                    ),
+                    Expanded(child: DropdownButtonFormField<String>(initialValue: area, decoration: const InputDecoration(labelText: 'Área', border: OutlineInputBorder()), items: [for (final item in areas) DropdownMenuItem(value: item, child: Text(_pretty(item)))], onChanged: saving ? null : (value) => setDialogState(() => area = value ?? area))),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [Text('Progreso $progress%', style: const TextStyle(fontWeight: FontWeight.w700)), Expanded(child: Slider(value: progress.toDouble(), min: 0, max: 100, divisions: 20, label: '$progress%', onChanged: saving ? null : (value) => setDialogState(() => progress = value.round())))]),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: visibleClient,
-                    onChanged: saving ? null : (value) => setDialogState(() => visibleClient = value ?? true),
-                    title: const Text('Visible para la empresa'),
-                    subtitle: const Text('El avance podrá aparecer en el seguimiento del cliente.'),
-                  ),
+                  CheckboxListTile(contentPadding: EdgeInsets.zero, value: visibleClient, onChanged: saving ? null : (value) => setDialogState(() => visibleClient = value ?? true), title: const Text('Visible para la empresa')),
                 ],
               ),
             ),
@@ -331,37 +487,24 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
           actions: [
             TextButton(onPressed: saving ? null : () => Navigator.of(dialogContext).pop(), child: const Text('Cancelar')),
             FilledButton.icon(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      if (titleController.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Escribe un título para el avance.')));
-                        return;
-                      }
-                      setDialogState(() => saving = true);
-                      try {
-                        await widget.repository.addProjectProgress(
-                          projectId: _int(project['id']),
-                          phase: phase,
-                          title: titleController.text.trim(),
-                          description: descriptionController.text,
-                          progress: progress,
-                          area: area,
-                          visibleClient: visibleClient,
-                        );
-                        if (!dialogContext.mounted) return;
-                        Navigator.of(dialogContext).pop();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avance registrado correctamente.')));
-                          await _load();
-                        }
-                      } on ApiException catch (exception) {
-                        if (dialogContext.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
-                          setDialogState(() => saving = false);
-                        }
-                      }
-                    },
+              onPressed: saving ? null : () async {
+                if (titleController.text.trim().isEmpty) return;
+                setDialogState(() => saving = true);
+                try {
+                  await widget.repository.addProjectProgress(projectId: _int(project['id']), phase: phase, title: titleController.text.trim(), description: descriptionController.text, progress: progress, area: area, visibleClient: visibleClient);
+                  if (!dialogContext.mounted) return;
+                  Navigator.of(dialogContext).pop();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avance registrado correctamente.')));
+                    await _load();
+                  }
+                } on ApiException catch (exception) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(exception.message)));
+                    setDialogState(() => saving = false);
+                  }
+                }
+              },
               icon: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add_task),
               label: const Text('Guardar avance'),
             ),
@@ -404,15 +547,11 @@ class _AdminHeader extends StatelessWidget {
   final String title;
   final String subtitle;
   final Future<void> Function() onRefresh;
-
   @override
-  Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(subtitle, style: const TextStyle(color: Colors.white60))])),
-          IconButton.filledTonal(onPressed: onRefresh, tooltip: 'Actualizar', icon: const Icon(Icons.refresh)),
-        ],
-      );
+  Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))])),
+        IconButton.filledTonal(onPressed: onRefresh, tooltip: 'Actualizar', icon: const Icon(Icons.refresh)),
+      ]);
 }
 
 class _AdminStat extends StatelessWidget {
@@ -421,19 +560,12 @@ class _AdminStat extends StatelessWidget {
   final dynamic value;
   final IconData icon;
   final VoidCallback? onTap;
-
   @override
   Widget build(BuildContext context) => SizedBox(
         width: 220,
         child: Card(
           clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Row(children: [CircleAvatar(child: Icon(icon)), const SizedBox(width: 14), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${value ?? 0}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)), Text(label, style: const TextStyle(color: Colors.white60))]))]),
-            ),
-          ),
+          child: InkWell(onTap: onTap, child: Padding(padding: const EdgeInsets.all(18), child: Row(children: [CircleAvatar(child: Icon(icon)), const SizedBox(width: 14), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${value ?? 0}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)), Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))]))]))),
         ),
       );
 }
@@ -447,7 +579,6 @@ class _RecentBlock extends StatelessWidget {
   final String Function(Map<String, dynamic>) subtitleBuilder;
   final ValueChanged<Map<String, dynamic>> onTap;
   final VoidCallback onViewAll;
-
   @override
   Widget build(BuildContext context) => Card(
         child: Padding(
@@ -455,74 +586,51 @@ class _RecentBlock extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))), TextButton(onPressed: onViewAll, child: const Text('Ver todos'))]),
             const SizedBox(height: 6),
-            if (items.isEmpty) const Text('Sin registros recientes.', style: TextStyle(color: Colors.white60)),
-            for (final row in items)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(icon),
-                title: Text(titleBuilder(row)),
-                subtitle: Text(subtitleBuilder(row)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => onTap(row),
-              ),
+            if (items.isEmpty) Text('Sin registros recientes.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            for (final row in items) ListTile(contentPadding: EdgeInsets.zero, leading: Icon(icon), title: Text(titleBuilder(row)), subtitle: Text(subtitleBuilder(row)), trailing: const Icon(Icons.chevron_right), onTap: () => onTap(row)),
           ]),
         ),
       );
 }
 
-class _EntityDetails extends StatelessWidget {
-  const _EntityDetails({required this.kind, required this.data, this.onAddProgress});
+class _GenericEntityDetails extends StatelessWidget {
+  const _GenericEntityDetails({required this.kind, required this.data, this.onAddProgress});
   final String kind;
   final Map<String, dynamic> data;
   final VoidCallback? onAddProgress;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final title = switch (kind) {
       'empresa' => _text(data['nombre_comercial'], 'Empresa'),
       'solicitud' => '${_text(data['codigo'], 'SOL')} · ${_text(data['titulo'], 'Solicitud')}',
       'proyecto' => '${_text(data['codigo'], 'PRO')} · ${_text(data['nombre'], 'Proyecto')}',
-      'aplicacion' => _text(data['nombre'], 'Aplicación'),
       _ => 'Detalle',
     };
     final icon = switch (kind) {
       'empresa' => Icons.business_outlined,
       'solicitud' => Icons.assignment_outlined,
       'proyecto' => Icons.account_tree_outlined,
-      'aplicacion' => Icons.apps_outlined,
       _ => Icons.info_outline,
     };
-
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(22, 18, 12, 16),
-          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
-          child: Row(children: [CircleAvatar(child: Icon(icon)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), Text(_pretty(data['estado']), style: const TextStyle(color: Colors.white60))])), IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close))]),
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(22),
-            children: [
-              Wrap(spacing: 12, runSpacing: 12, children: _detailFields(kind, data).map((field) => _DetailField(label: field.$1, value: field.$2)).toList()),
-              if (kind == 'proyecto') ...[
-                const SizedBox(height: 22),
-                Row(children: [const Expanded(child: Text('Avances del proyecto', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))), if (onAddProgress != null) FilledButton.icon(onPressed: onAddProgress, icon: const Icon(Icons.add_task), label: const Text('Registrar avance'))]),
-                const SizedBox(height: 8),
-                if (_items(data['avances']).isEmpty) const Text('Todavía no hay avances registrados.', style: TextStyle(color: Colors.white60)),
-                for (final advance in _items(data['avances']).reversed.take(8))
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(child: Text('${advance['progreso'] ?? 0}%')),
-                    title: Text(_text(advance['titulo'], 'Avance')),
-                    subtitle: Text('${_pretty(advance['fase'])} · ${_text(advance['descripcion'], 'Sin descripción')}'),
-                  ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.fromLTRB(22, 18, 12, 16),
+        decoration: BoxDecoration(color: colors.surfaceContainerHighest, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
+        child: Row(children: [CircleAvatar(child: Icon(icon)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), Text(_pretty(data['estado']), style: TextStyle(color: colors.onSurfaceVariant))])), IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close))]),
+      ),
+      Expanded(child: ListView(padding: const EdgeInsets.all(22), children: [
+        Wrap(spacing: 12, runSpacing: 12, children: _detailFields(kind, data).map((field) => _DetailField(label: field.$1, value: field.$2)).toList()),
+        if (kind == 'proyecto') ...[
+          const SizedBox(height: 22),
+          Row(children: [const Expanded(child: Text('Avances del proyecto', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))), if (onAddProgress != null) FilledButton.icon(onPressed: onAddProgress, icon: const Icon(Icons.add_task), label: const Text('Registrar avance'))]),
+          const SizedBox(height: 8),
+          if (_items(data['avances']).isEmpty) Text('Todavía no hay avances registrados.', style: TextStyle(color: colors.onSurfaceVariant)),
+          for (final advance in _items(data['avances']).reversed.take(8)) ListTile(contentPadding: EdgeInsets.zero, leading: CircleAvatar(child: Text('${advance['progreso'] ?? 0}%')), title: Text(_text(advance['titulo'], 'Avance')), subtitle: Text('${_pretty(advance['fase'])} · ${_text(advance['descripcion'], 'Sin descripción')}')),
+        ],
+      ])),
+    ]);
   }
 }
 
@@ -530,47 +638,13 @@ List<(String, String)> _detailFields(String kind, Map<String, dynamic> data) {
   final company = _map(data['empresa']);
   final client = _map(data['cliente']);
   final responsible = _map(data['responsable']);
-  final project = _map(data['proyecto']);
   switch (kind) {
     case 'empresa':
-      return [
-        ('Código', _text(data['codigo'], 'Sin código')),
-        ('Actividad', _text(data['actividad'], 'No definida')),
-        ('Estado', _pretty(data['estado'])),
-        ('Responsable', _text(client['nombre'], 'Sin responsable')),
-        ('Teléfono', _text(client['telefono'], _text(data['telefono'], 'No registrado'))),
-        ('Ciudad', _text(data['ciudad'], 'No registrada')),
-      ];
+      return [('Código', _text(data['codigo'], 'Sin código')), ('Actividad', _text(data['actividad'], 'No definida')), ('Estado', _pretty(data['estado'])), ('Responsable', _text(client['nombre'], 'Sin responsable')), ('Teléfono', _text(client['telefono'], _text(data['telefono'], 'No registrado'))), ('Ciudad', _text(data['ciudad'], 'No registrada'))];
     case 'solicitud':
-      return [
-        ('Código', _text(data['codigo'], 'Sin código')),
-        ('Estado', _pretty(data['estado'])),
-        ('Prioridad', _pretty(data['prioridad'])),
-        ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')),
-        ('Cliente', _text(client['nombre'], 'Sin cliente')),
-        ('Tipo', _text(data['tipo_proyecto'], 'Sistema VITI')),
-      ];
+      return [('Código', _text(data['codigo'], 'Sin código')), ('Estado', _pretty(data['estado'])), ('Prioridad', _pretty(data['prioridad'])), ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')), ('Cliente', _text(client['nombre'], 'Sin cliente')), ('Tipo', _text(data['tipo_proyecto'], 'Sistema VITI'))];
     case 'proyecto':
-      return [
-        ('Código', _text(data['codigo'], 'Sin código')),
-        ('Fase', _pretty(data['fase'])),
-        ('Estado', _pretty(data['estado'])),
-        ('Progreso', '${data['progreso'] ?? 0}%'),
-        ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')),
-        ('Cliente', _text(client['nombre'], 'Sin cliente')),
-        ('Responsable', _text(responsible['nombre'], 'Sin asignar')),
-        ('Beta', _date(data['fecha_beta'])),
-        ('Entrega', _date(data['fecha_entrega'])),
-      ];
-    case 'aplicacion':
-      return [
-        ('Versión', _text(data['version'], 'Sin versión')),
-        ('Entorno', _pretty(data['entorno'])),
-        ('Estado', _pretty(data['estado'])),
-        ('Entrega', data['acceso_cliente'] == true ? 'Entregada' : 'Pendiente'),
-        ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')),
-        ('Proyecto', _text(project['nombre'], _text(project['codigo'], 'Sin proyecto'))),
-      ];
+      return [('Código', _text(data['codigo'], 'Sin código')), ('Fase', _pretty(data['fase'])), ('Estado', _pretty(data['estado'])), ('Progreso', '${data['progreso'] ?? 0}%'), ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')), ('Cliente', _text(client['nombre'], 'Sin cliente')), ('Responsable', _text(responsible['nombre'], 'Sin asignar')), ('Beta', _date(data['fecha_beta'])), ('Entrega', _date(data['fecha_entrega']))];
     default:
       return const [];
   }
@@ -580,28 +654,20 @@ class _DetailField extends StatelessWidget {
   const _DetailField({required this.label, required this.value});
   final String label;
   final String value;
-
   @override
   Widget build(BuildContext context) => Container(
         width: 220,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 12, color: Colors.white60)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontWeight: FontWeight.w700))]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontWeight: FontWeight.w700))]),
       );
-}
-
-class _DetailError extends StatelessWidget {
-  const _DetailError({required this.message});
-  final String message;
-  @override
-  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.error_outline, size: 42), const SizedBox(height: 12), Text(message, textAlign: TextAlign.center), const SizedBox(height: 12), FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cerrar'))])));
 }
 
 class _AdminEmpty extends StatelessWidget {
   const _AdminEmpty({required this.text});
   final String text;
   @override
-  Widget build(BuildContext context) => Card(child: Padding(padding: const EdgeInsets.all(24), child: Text(text, style: const TextStyle(color: Colors.white60))));
+  Widget build(BuildContext context) => Card(child: Padding(padding: const EdgeInsets.all(24), child: Text(text, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))));
 }
 
 class _AdminError extends StatelessWidget {
