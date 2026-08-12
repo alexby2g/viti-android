@@ -1,6 +1,9 @@
 name: Flutter CI
 
 on:
+  push:
+    branches:
+      - agent/flutter-viti-premium-v2
   pull_request:
 
 jobs:
