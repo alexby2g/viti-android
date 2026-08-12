@@ -134,6 +134,11 @@ class VitiRepository {
     }
   }
 
+  Future<Map<String, dynamic>> businessAppState(String key) async {
+    await _ensureClientCompany();
+    return _map((await _api.getJson('${_businessAppBase(key)}/estado'))['data']);
+  }
+
   Future<Map<String, dynamic>> businessAppSummary(String key) async {
     await _ensureClientCompany();
     return _map((await _api.getJson('${_businessAppBase(key)}/resumen'))['data']);
@@ -144,7 +149,24 @@ class VitiRepository {
     return _list((await _api.getJson('${_businessAppBase(key)}/$resource'))['data']);
   }
 
-  Future<Map<String, dynamic>> createTechnicalClient({required String name, String? phone, String? whatsapp, String? address, String? notes}) async {
+  Future<Map<String, dynamic>> technicalReferences() async {
+    await _ensureClientCompany();
+    return _map((await _api.getJson('/mi/apps/servicio-tecnico/referencias'))['data']);
+  }
+
+  Future<List<Map<String, dynamic>>> technicalBusinessUsers() async {
+    await _ensureClientCompany();
+    return _list((await _api.getJson('/mi/apps/servicio-tecnico/usuarios-negocio'))['data']);
+  }
+
+  Future<Map<String, dynamic>> createTechnicalClient({
+    required String name,
+    String? phone,
+    String? whatsapp,
+    String? address,
+    String? notes,
+    bool active = true,
+  }) async {
     await _ensureClientCompany();
     final response = await _api.postJson('/mi/apps/servicio-tecnico/clientes', <String, dynamic>{
       'nombre': name.trim(),
@@ -152,7 +174,122 @@ class VitiRepository {
       if (whatsapp != null && whatsapp.trim().isNotEmpty) 'whatsapp': whatsapp.trim(),
       if (address != null && address.trim().isNotEmpty) 'direccion': address.trim(),
       if (notes != null && notes.trim().isNotEmpty) 'observaciones': notes.trim(),
-      'activo': true,
+      'activo': active,
+    });
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> updateTechnicalClient({
+    required int id,
+    required String name,
+    String? phone,
+    String? whatsapp,
+    String? address,
+    String? notes,
+    bool active = true,
+  }) async {
+    await _ensureClientCompany();
+    final response = await _api.putJson('/mi/apps/servicio-tecnico/clientes/$id', <String, dynamic>{
+      'nombre': name.trim(),
+      'telefono': _nullableText(phone),
+      'whatsapp': _nullableText(whatsapp),
+      'direccion': _nullableText(address),
+      'observaciones': _nullableText(notes),
+      'activo': active,
+    });
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> createTechnicalEquipment({
+    required int clientId,
+    required String type,
+    String? brand,
+    String? model,
+    String? serial,
+    String? specifications,
+    String? accessories,
+    String? receptionState,
+    String? notes,
+    bool active = true,
+  }) async {
+    await _ensureClientCompany();
+    final response = await _api.postJson('/mi/apps/servicio-tecnico/equipos', <String, dynamic>{
+      'cliente_id': clientId,
+      'tipo': type.trim(),
+      'marca': _nullableText(brand),
+      'modelo': _nullableText(model),
+      'serie': _nullableText(serial),
+      'especificaciones': _nullableText(specifications),
+      'accesorios_recibidos': _nullableText(accessories),
+      'estado_recepcion': _nullableText(receptionState),
+      'observaciones': _nullableText(notes),
+      'activo': active,
+    });
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> updateTechnicalEquipment({
+    required int id,
+    required int clientId,
+    required String type,
+    String? brand,
+    String? model,
+    String? serial,
+    String? specifications,
+    String? accessories,
+    String? receptionState,
+    String? notes,
+    bool active = true,
+  }) async {
+    await _ensureClientCompany();
+    final response = await _api.putJson('/mi/apps/servicio-tecnico/equipos/$id', <String, dynamic>{
+      'cliente_id': clientId,
+      'tipo': type.trim(),
+      'marca': _nullableText(brand),
+      'modelo': _nullableText(model),
+      'serie': _nullableText(serial),
+      'especificaciones': _nullableText(specifications),
+      'accesorios_recibidos': _nullableText(accessories),
+      'estado_recepcion': _nullableText(receptionState),
+      'observaciones': _nullableText(notes),
+      'activo': active,
+    });
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> createTechnicalTechnician({
+    int? userId,
+    required String name,
+    String? phone,
+    String? specialty,
+    bool active = true,
+  }) async {
+    await _ensureClientCompany();
+    final response = await _api.postJson('/mi/apps/servicio-tecnico/tecnicos', <String, dynamic>{
+      'usuario_id': userId,
+      'nombre': name.trim(),
+      'telefono': _nullableText(phone),
+      'especialidad': _nullableText(specialty),
+      'activo': active,
+    });
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> updateTechnicalTechnician({
+    required int id,
+    int? userId,
+    required String name,
+    String? phone,
+    String? specialty,
+    bool active = true,
+  }) async {
+    await _ensureClientCompany();
+    final response = await _api.putJson('/mi/apps/servicio-tecnico/tecnicos/$id', <String, dynamic>{
+      'usuario_id': userId,
+      'nombre': name.trim(),
+      'telefono': _nullableText(phone),
+      'especialidad': _nullableText(specialty),
+      'activo': active,
     });
     return _map(response['data']);
   }
@@ -171,15 +308,52 @@ class VitiRepository {
     await _ensureClientCompany();
     final response = await _api.postJson('/mi/apps/servicio-tecnico/ordenes', <String, dynamic>{
       'cliente_id': clientId,
-      if (equipmentId != null && equipmentId > 0) 'equipo_id': equipmentId,
-      if (technicianId != null && technicianId > 0) 'tecnico_id': technicianId,
+      'equipo_id': equipmentId,
+      'tecnico_id': technicianId,
       'fecha_recepcion': receptionDate,
-      if (scheduledDate != null && scheduledDate.isNotEmpty) 'fecha_programada': scheduledDate,
-      if (scheduledTime != null && scheduledTime.isNotEmpty) 'hora_programada': scheduledTime,
+      'fecha_programada': _nullableText(scheduledDate),
+      'hora_programada': _nullableText(scheduledTime),
       'prioridad': priority,
       'problema_reportado': reportedProblem.trim(),
       'costo_servicio': serviceCost,
       'descuento': 0,
+    });
+    return _map(response['data']);
+  }
+
+  Future<Map<String, dynamic>> updateTechnicalOrder({
+    required int id,
+    required int clientId,
+    int? equipmentId,
+    int? technicianId,
+    required String receptionDate,
+    String? scheduledDate,
+    String? scheduledTime,
+    required String priority,
+    required String reportedProblem,
+    String? diagnosis,
+    String? proposal,
+    String? workDone,
+    String? recommendations,
+    double? serviceCost,
+    double? discount,
+  }) async {
+    await _ensureClientCompany();
+    final response = await _api.putJson('/mi/apps/servicio-tecnico/ordenes/$id', <String, dynamic>{
+      'cliente_id': clientId,
+      'equipo_id': equipmentId,
+      'tecnico_id': technicianId,
+      'fecha_recepcion': receptionDate,
+      'fecha_programada': _nullableText(scheduledDate),
+      'hora_programada': _nullableText(scheduledTime),
+      'prioridad': priority,
+      'problema_reportado': reportedProblem.trim(),
+      'diagnostico': _nullableText(diagnosis),
+      'propuesta': _nullableText(proposal),
+      'trabajo_realizado': _nullableText(workDone),
+      'recomendaciones': _nullableText(recommendations),
+      'costo_servicio': serviceCost,
+      'descuento': discount,
     });
     return _map(response['data']);
   }
@@ -192,6 +366,11 @@ class VitiRepository {
       if (reference != null && reference.trim().isNotEmpty) 'referencia': reference.trim(),
     });
     return _map(response['data']);
+  }
+
+  static dynamic _nullableText(String? value) {
+    final text = value?.trim() ?? '';
+    return text.isEmpty ? null : text;
   }
 
   static Map<String, dynamic> _map(dynamic value) => value is Map<String, dynamic> ? value : <String, dynamic>{};
