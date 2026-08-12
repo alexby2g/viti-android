@@ -271,7 +271,7 @@ class _SidebarTile extends StatelessWidget {
         onTap: onTap,
         hoverColor: Colors.white.withValues(alpha: .06),
         child: Container(
-          minHeight: 44,
+          constraints: const BoxConstraints(minHeight: 44),
           padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 12, vertical: 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(11),
