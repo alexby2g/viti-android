@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/ui/viti_ui.dart';
 import '../data/viti_repository.dart';
 import 'technical_workflow_dialogs.dart';
 
@@ -61,80 +62,123 @@ class _TechnicalOrderWorkspaceState extends State<TechnicalOrderWorkspace> {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(22, 18, 12, 16),
-          decoration: BoxDecoration(color: colors.surfaceContainerHighest, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
+          padding: const EdgeInsets.fromLTRB(22, 16, 12, 14),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border(bottom: BorderSide(color: colors.outlineVariant)),
+          ),
           child: Row(
             children: [
-              CircleAvatar(backgroundColor: colors.primaryContainer, foregroundColor: colors.onPrimaryContainer, child: const Icon(Icons.assignment_outlined)),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: colors.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(13)),
+                child: Icon(_stateIcon(state), color: colors.primary),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${_text(order['codigo'], 'Orden')} · ${_text(order['cliente_nombre'], 'Cliente')}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 2),
-                    Text('${_stateLabel(state)} · ${_equipmentLabel(order)}', style: TextStyle(color: colors.onSurfaceVariant)),
+                    Row(
+                      children: [
+                        Flexible(child: Text('${_text(order['codigo'], 'Orden')} · ${_text(order['cliente_nombre'], 'Cliente')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900))),
+                        const SizedBox(width: 8),
+                        VitiStatusBadge(_stateLabel(state), tone: _stateTone(state), icon: _stateIcon(state)),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(_equipmentLabel(order), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
                   ],
                 ),
               ),
-              if (busy) const Padding(padding: EdgeInsets.only(right: 10), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-              IconButton(onPressed: busy ? null : () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.only(right: 10),
+                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+              IconButton(onPressed: busy ? null : () => Navigator.of(context).pop(), tooltip: 'Cerrar', icon: const Icon(Icons.close)),
             ],
           ),
         ),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(22),
-            children: [
-              _workflowCard(),
-              const SizedBox(height: 16),
-              _actionsCard(),
-              const SizedBox(height: 16),
-              _summaryCards(),
-              const SizedBox(height: 16),
-              _section(
-                title: 'Recepción y asignación',
-                icon: Icons.inbox_outlined,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 980;
+              final details = Column(
                 children: [
-                  _field('Cliente', _text(order['cliente_nombre'], 'Sin cliente')),
-                  _field('Teléfono', _text(order['cliente_telefono'], 'No registrado')),
-                  _field('Computadora', _equipmentLabel(order)),
-                  _field('Técnico', _text(order['tecnico_nombre'], 'Sin asignar')),
-                  _field('Prioridad', _pretty(order['prioridad'])),
-                  _field('Recepción', _date(order['fecha_recepcion'])),
-                  _field('Visita programada', _scheduleLabel(order)),
-                  _field('Problema reportado', _text(order['problema_reportado'], 'Sin detalle')),
+                  _section(
+                    title: 'Recepción y asignación',
+                    subtitle: 'Datos base de ingreso y responsable técnico',
+                    icon: Icons.inbox_outlined,
+                    children: [
+                      _field('Cliente', _text(order['cliente_nombre'], 'Sin cliente')),
+                      _field('Teléfono', _text(order['cliente_telefono'], 'No registrado')),
+                      _field('Computadora', _equipmentLabel(order)),
+                      _field('Técnico', _text(order['tecnico_nombre'], 'Sin asignar')),
+                      _field('Prioridad', _pretty(order['prioridad'])),
+                      _field('Recepción', _date(order['fecha_recepcion'])),
+                      _field('Visita programada', _scheduleLabel(order)),
+                      _field('Problema reportado', _text(order['problema_reportado'], 'Sin detalle')),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _section(
+                    title: 'Diagnóstico y propuesta',
+                    subtitle: 'Conclusión técnica y decisión del cliente',
+                    icon: Icons.fact_check_outlined,
+                    children: [
+                      _field('Diagnóstico', _text(order['diagnostico'], 'Pendiente')),
+                      _field('Propuesta', _text(order['propuesta'], 'Pendiente')),
+                      _field('Decisión del cliente', _decisionLabel(order)),
+                      if (_text(order['motivo_rechazo'], '').isNotEmpty) _field('Motivo de rechazo', _text(order['motivo_rechazo'], '')),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _section(
+                    title: 'Trabajo, pruebas y garantía',
+                    subtitle: 'Ejecución final, recomendaciones y cobertura',
+                    icon: Icons.build_circle_outlined,
+                    children: [
+                      _field('Trabajo realizado', _text(order['trabajo_realizado'], 'Pendiente')),
+                      _field('Recomendaciones', _text(order['recomendaciones'], 'Sin recomendaciones')),
+                      _field('Garantía', _warrantyLabel(order)),
+                      if (_text(order['condiciones_garantia'], '').isNotEmpty) _field('Condiciones', _text(order['condiciones_garantia'], '')),
+                    ],
+                  ),
+                  if (widget.hasPayments) ...[
+                    const SizedBox(height: 12),
+                    _paymentsSection(),
+                  ],
+                  const SizedBox(height: 12),
+                  _evidenceSection(),
                 ],
-              ),
-              const SizedBox(height: 12),
-              _section(
-                title: 'Diagnóstico y propuesta',
-                icon: Icons.fact_check_outlined,
+              );
+
+              return ListView(
+                padding: const EdgeInsets.all(20),
                 children: [
-                  _field('Diagnóstico', _text(order['diagnostico'], 'Pendiente')),
-                  _field('Propuesta', _text(order['propuesta'], 'Pendiente')),
-                  _field('Decisión del cliente', _decisionLabel(order)),
-                  if (_text(order['motivo_rechazo'], '').isNotEmpty) _field('Motivo de rechazo', _text(order['motivo_rechazo'], '')),
+                  _workflowCard(),
+                  const SizedBox(height: 14),
+                  _summaryCards(),
+                  const SizedBox(height: 14),
+                  if (wide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 7, child: details),
+                        const SizedBox(width: 14),
+                        SizedBox(width: 300, child: _actionsCard()),
+                      ],
+                    )
+                  else ...[
+                    _actionsCard(),
+                    const SizedBox(height: 14),
+                    details,
+                  ],
                 ],
-              ),
-              const SizedBox(height: 12),
-              _section(
-                title: 'Trabajo, pruebas y garantía',
-                icon: Icons.build_circle_outlined,
-                children: [
-                  _field('Trabajo realizado', _text(order['trabajo_realizado'], 'Pendiente')),
-                  _field('Recomendaciones', _text(order['recomendaciones'], 'Sin recomendaciones')),
-                  _field('Garantía', _warrantyLabel(order)),
-                  if (_text(order['condiciones_garantia'], '').isNotEmpty) _field('Condiciones', _text(order['condiciones_garantia'], '')),
-                ],
-              ),
-              if (widget.hasPayments) ...[
-                const SizedBox(height: 12),
-                _paymentsSection(),
-              ],
-              const SizedBox(height: 12),
-              _evidenceSection(),
-            ],
+              );
+            },
           ),
         ),
       ],
@@ -144,59 +188,65 @@ class _TechnicalOrderWorkspaceState extends State<TechnicalOrderWorkspace> {
   Widget _workflowCard() {
     final colors = Theme.of(context).colorScheme;
     final currentIndex = state == 'sin_reparacion' ? -1 : _states.indexOf(state);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(child: Text('Flujo de la orden', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900))),
-                Chip(
-                  avatar: Icon(closed ? Icons.check_circle_outline : Icons.timelapse, size: 17),
-                  label: Text(state == 'sin_reparacion' ? 'Sin reparación' : _stateLabel(state)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            if (state == 'sin_reparacion')
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: colors.errorContainer, borderRadius: BorderRadius.circular(14)),
-                child: Row(children: [Icon(Icons.cancel_outlined, color: colors.onErrorContainer), const SizedBox(width: 10), Expanded(child: Text('El cliente rechazó la propuesta. La orden quedó cerrada sin reparación.', style: TextStyle(color: colors.onErrorContainer, fontWeight: FontWeight.w700)))]),
-              )
-            else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (var index = 0; index < _states.length; index++) ...[
-                      _stepChip(_states[index], index < currentIndex, index == currentIndex),
-                      if (index < _states.length - 1) Container(width: 28, height: 2, color: index < currentIndex ? colors.primary : colors.outlineVariant),
-                    ],
+    return VitiPanel(
+      padding: const EdgeInsets.all(16),
+      selected: !closed,
+      tone: _stateTone(state),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 38, height: 38, decoration: BoxDecoration(color: vitiToneColor(context, _stateTone(state)).withValues(alpha: .10), borderRadius: BorderRadius.circular(11)), child: Icon(Icons.route_outlined, size: 19, color: vitiToneColor(context, _stateTone(state)))),
+              const SizedBox(width: 10),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Flujo de la orden', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), Text('Seguimiento del servicio de principio a fin', style: TextStyle(fontSize: 11))])),
+              VitiStatusBadge(state == 'sin_reparacion' ? 'Sin reparación' : _stateLabel(state), tone: _stateTone(state), icon: closed ? Icons.check_circle_outline : Icons.timelapse),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (state == 'sin_reparacion')
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: colors.error.withValues(alpha: .08), borderRadius: BorderRadius.circular(13), border: Border.all(color: colors.error.withValues(alpha: .20))),
+              child: Row(children: [Icon(Icons.cancel_outlined, color: colors.error), const SizedBox(width: 10), const Expanded(child: Text('El cliente rechazó la propuesta. La orden quedó cerrada sin reparación.', style: TextStyle(fontWeight: FontWeight.w700)))]),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var index = 0; index < _states.length; index++) ...[
+                    _stepChip(_states[index], index < currentIndex, index == currentIndex),
+                    if (index < _states.length - 1)
+                      Container(width: 24, height: 2, color: index < currentIndex ? colors.primary : colors.outlineVariant),
                   ],
-                ),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
 
   Widget _stepChip(String value, bool complete, bool current) {
     final colors = Theme.of(context).colorScheme;
-    final background = current ? colors.primaryContainer : complete ? colors.secondaryContainer : colors.surfaceContainer;
-    final foreground = current ? colors.onPrimaryContainer : complete ? colors.onSecondaryContainer : colors.onSurfaceVariant;
+    final tone = _stateTone(value);
+    final toneColor = vitiToneColor(context, tone);
+    final background = current ? toneColor.withValues(alpha: .12) : complete ? colors.primary.withValues(alpha: .07) : colors.surfaceContainerLow;
+    final foreground = current ? toneColor : complete ? colors.primary : colors.onSurfaceVariant;
     return Container(
-      width: 130,
+      width: 128,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(12), border: current ? Border.all(color: colors.primary) : null),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: current ? toneColor.withValues(alpha: .45) : colors.outlineVariant.withValues(alpha: .75)),
+      ),
       child: Row(
         children: [
-          Icon(complete ? Icons.check_circle : current ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 18, color: foreground),
+          Icon(complete ? Icons.check_circle : current ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 17, color: foreground),
           const SizedBox(width: 7),
-          Expanded(child: Text(_stateLabel(value), maxLines: 2, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: foreground))),
+          Expanded(child: Text(_stateLabel(value), maxLines: 2, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: foreground, height: 1.15))),
         ],
       ),
     );
@@ -204,10 +254,15 @@ class _TechnicalOrderWorkspaceState extends State<TechnicalOrderWorkspace> {
 
   Widget _actionsCard() {
     if (!widget.canManage) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(children: [const Icon(Icons.visibility_outlined), const SizedBox(width: 10), Expanded(child: Text('Tu acceso es de consulta. El flujo y los datos se actualizan en tiempo real desde VITI.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)))]),
+      return VitiPanel(
+        tone: VitiTone.info,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const VitiStatusBadge('Modo consulta', tone: VitiTone.info, icon: Icons.visibility_outlined),
+            const SizedBox(height: 12),
+            Text('El flujo y los datos se actualizan desde VITI. Tu acceso actual no permite modificar esta orden.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.4)),
+          ],
         ),
       );
     }
@@ -262,17 +317,25 @@ class _TechnicalOrderWorkspaceState extends State<TechnicalOrderWorkspace> {
         ),
     ];
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Acciones disponibles', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: actions),
+    return VitiPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(width: 36, height: 36, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(10)), child: Icon(Icons.bolt_outlined, size: 18, color: Theme.of(context).colorScheme.primary)),
+              const SizedBox(width: 9),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Acciones', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)), Text('Siguiente movimiento de la orden', style: TextStyle(fontSize: 10))])),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (final action in actions) ...[
+            SizedBox(width: double.infinity, child: action),
+            const SizedBox(height: 8),
           ],
-        ),
+          if (actions.isEmpty)
+            Text('No hay acciones disponibles para el estado actual.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+        ],
       ),
     );
   }
@@ -282,43 +345,48 @@ class _TechnicalOrderWorkspaceState extends State<TechnicalOrderWorkspace> {
       spacing: 10,
       runSpacing: 10,
       children: [
-        _miniStat('Estado', _stateLabel(state), Icons.flag_outlined),
-        _miniStat('Técnico', _text(order['tecnico_nombre'], 'Sin asignar'), Icons.engineering_outlined),
-        _miniStat('Decisión', _decisionLabel(order), Icons.how_to_reg_outlined),
-        if (widget.hasPayments) _miniStat('Total', '${_money(order['total'])} Bs', Icons.receipt_long_outlined),
-        if (widget.hasPayments) _miniStat('Pagado', '${_money(order['pagado'])} Bs', Icons.check_circle_outline),
-        if (widget.hasPayments) _miniStat('Saldo', '${_money(order['saldo'])} Bs', Icons.payments_outlined),
+        _miniStat('Estado', _stateLabel(state), _stateIcon(state), _stateTone(state)),
+        _miniStat('Técnico', _text(order['tecnico_nombre'], 'Sin asignar'), Icons.engineering_outlined, VitiTone.info),
+        _miniStat('Decisión', _decisionLabel(order), Icons.how_to_reg_outlined, _decisionTone(order)),
+        if (widget.hasPayments) _miniStat('Total', '${_money(order['total'])} Bs', Icons.receipt_long_outlined, VitiTone.neutral),
+        if (widget.hasPayments) _miniStat('Pagado', '${_money(order['pagado'])} Bs', Icons.check_circle_outline, VitiTone.success),
+        if (widget.hasPayments) _miniStat('Saldo', '${_money(order['saldo'])} Bs', Icons.payments_outlined, _number(order['saldo']) > 0 ? VitiTone.warning : VitiTone.success),
       ],
     );
   }
 
-  Widget _miniStat(String label, String value, IconData icon) {
-    return Container(
+  Widget _miniStat(String label, String value, IconData icon, VitiTone tone) {
+    final color = vitiToneColor(context, tone);
+    return SizedBox(
       width: 205,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14)),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 18, child: Icon(icon, size: 18)),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 3), Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))])),
-        ],
+      child: VitiPanel(
+        padding: const EdgeInsets.all(13),
+        child: Row(
+          children: [
+            Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 18, color: color)),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)), const SizedBox(height: 3), Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800))])),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _section({required String title, required IconData icon, required List<Widget> children}) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [Icon(icon), const SizedBox(width: 9), Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900))]),
-            const SizedBox(height: 14),
-            Wrap(spacing: 18, runSpacing: 14, children: children),
-          ],
-        ),
+  Widget _section({required String title, required String subtitle, required IconData icon, required List<Widget> children}) {
+    return VitiPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 38, height: 38, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(11)), child: Icon(icon, size: 19, color: Theme.of(context).colorScheme.primary)),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), const SizedBox(height: 2), Text(subtitle, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant))])),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(spacing: 18, runSpacing: 16, children: children),
+        ],
       ),
     );
   }
@@ -329,9 +397,9 @@ class _TechnicalOrderWorkspaceState extends State<TechnicalOrderWorkspace> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 3),
-          SelectableText(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(label.toUpperCase(), style: TextStyle(fontSize: 9, letterSpacing: .75, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 4),
+          SelectableText(value, style: const TextStyle(fontWeight: FontWeight.w700, height: 1.35)),
         ],
       ),
     );
@@ -339,55 +407,70 @@ class _TechnicalOrderWorkspaceState extends State<TechnicalOrderWorkspace> {
 
   Widget _paymentsSection() {
     final payments = _list(order['pagos']);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [const Icon(Icons.payments_outlined), const SizedBox(width: 9), const Expanded(child: Text('Pagos', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900))), if (widget.canManage && _number(order['saldo']) > 0) TextButton.icon(onPressed: busy ? null : _registerPayment, icon: const Icon(Icons.add), label: const Text('Registrar'))]),
-            const SizedBox(height: 10),
-            if (payments.isEmpty) Text('Aún no hay pagos registrados.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+    return VitiPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 38, height: 38, decoration: BoxDecoration(color: vitiToneColor(context, VitiTone.success).withValues(alpha: .10), borderRadius: BorderRadius.circular(11)), child: Icon(Icons.payments_outlined, size: 19, color: vitiToneColor(context, VitiTone.success))),
+              const SizedBox(width: 10),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Pagos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), Text('Movimientos registrados en la orden', style: TextStyle(fontSize: 10))])),
+              if (widget.canManage && _number(order['saldo']) > 0) TextButton.icon(onPressed: busy ? null : _registerPayment, icon: const Icon(Icons.add), label: const Text('Registrar')),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (payments.isEmpty)
+            const VitiEmptyState(title: 'Sin pagos registrados', message: 'Los pagos aparecerán aquí cuando se registren.', icon: Icons.payments_outlined)
+          else
             for (final payment in payments)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const CircleAvatar(child: Icon(Icons.attach_money)),
-                title: Text('${_money(payment['monto'])} Bs · ${_pretty(payment['metodo'])}'),
-                subtitle: Text('${_date(payment['pagado_at'])}${_text(payment['referencia'], '').isNotEmpty ? ' · ${payment['referencia']}' : ''}'),
+              VitiEntityRow(
+                title: '${_money(payment['monto'])} Bs · ${_pretty(payment['metodo'])}',
+                subtitle: '${_date(payment['pagado_at'])}${_text(payment['referencia'], '').isNotEmpty ? ' · ${payment['referencia']}' : ''}',
+                icon: Icons.attach_money,
+                badges: const [VitiStatusBadge('Registrado', tone: VitiTone.success)],
+                onTap: () {},
+                trailing: const Icon(Icons.check_circle_outline, size: 19),
               ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _evidenceSection() {
     final evidence = _list(order['evidencias']);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [const Icon(Icons.photo_library_outlined), const SizedBox(width: 9), const Expanded(child: Text('Evidencias', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900))), if (widget.canManage && !closed) TextButton.icon(onPressed: busy ? null : _addEvidence, icon: const Icon(Icons.add_a_photo_outlined), label: const Text('Agregar'))]),
-            const SizedBox(height: 10),
-            if (evidence.isEmpty) Text('No hay fotografías asociadas a esta orden.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+    return VitiPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 38, height: 38, decoration: BoxDecoration(color: vitiToneColor(context, VitiTone.info).withValues(alpha: .10), borderRadius: BorderRadius.circular(11)), child: Icon(Icons.photo_library_outlined, size: 19, color: vitiToneColor(context, VitiTone.info))),
+              const SizedBox(width: 10),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Evidencias', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), Text('Fotografías y archivos del servicio', style: TextStyle(fontSize: 10))])),
+              if (widget.canManage && !closed) TextButton.icon(onPressed: busy ? null : _addEvidence, icon: const Icon(Icons.add_a_photo_outlined), label: const Text('Agregar')),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (evidence.isEmpty)
+            const VitiEmptyState(title: 'Sin evidencias', message: 'No hay fotografías asociadas a esta orden.', icon: Icons.photo_library_outlined)
+          else
             for (final item in evidence)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const CircleAvatar(child: Icon(Icons.image_outlined)),
-                title: Text(_text(item['nombre_original'], 'Evidencia')),
-                subtitle: Text('${_pretty(item['etapa'])}${_text(item['descripcion'], '').isNotEmpty ? ' · ${item['descripcion']}' : ''}'),
+              VitiEntityRow(
+                title: _text(item['nombre_original'], 'Evidencia'),
+                subtitle: '${_pretty(item['etapa'])}${_text(item['descripcion'], '').isNotEmpty ? ' · ${item['descripcion']}' : ''}',
+                icon: Icons.image_outlined,
+                badges: [VitiStatusBadge(_pretty(item['etapa']), tone: VitiTone.info)],
+                onTap: () {},
                 trailing: widget.canManage && !closed
                     ? IconButton(
                         tooltip: 'Eliminar evidencia',
                         onPressed: busy ? null : () => _deleteEvidence(_int(item['id'])),
                         icon: const Icon(Icons.delete_outline),
                       )
-                    : null,
+                    : const Icon(Icons.chevron_right, size: 19),
               ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -598,6 +681,36 @@ String _stateLabel(String value) => switch (value) {
       'entregado' => 'Entregado',
       'sin_reparacion' => 'Sin reparación',
       _ => _pretty(value),
+    };
+
+VitiTone _stateTone(String value) => switch (value) {
+      'recibido' => VitiTone.info,
+      'diagnostico' => VitiTone.warning,
+      'esperando_aprobacion' => VitiTone.warning,
+      'reparacion' => VitiTone.primary,
+      'pruebas' => VitiTone.primary,
+      'listo_entrega' => VitiTone.success,
+      'entregado' => VitiTone.success,
+      'sin_reparacion' => VitiTone.danger,
+      _ => VitiTone.neutral,
+    };
+
+VitiTone _decisionTone(Map<String, dynamic> order) => switch ('${order['decision_cliente'] ?? 'pendiente'}') {
+      'aceptado' => VitiTone.success,
+      'rechazado' => VitiTone.danger,
+      _ => VitiTone.warning,
+    };
+
+IconData _stateIcon(String value) => switch (value) {
+      'recibido' => Icons.inbox_outlined,
+      'diagnostico' => Icons.search_outlined,
+      'esperando_aprobacion' => Icons.hourglass_bottom,
+      'reparacion' => Icons.build_outlined,
+      'pruebas' => Icons.science_outlined,
+      'listo_entrega' => Icons.inventory_2_outlined,
+      'entregado' => Icons.task_alt,
+      'sin_reparacion' => Icons.cancel_outlined,
+      _ => Icons.assignment_outlined,
     };
 
 String _decisionLabel(Map<String, dynamic> order) => switch ('${order['decision_cliente'] ?? 'pendiente'}') {
