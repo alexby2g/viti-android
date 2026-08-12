@@ -75,7 +75,14 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
       if (widget.module != 'inicio' && selected != null) {
         final rows = _items(data);
         final selectedId = _int(selected!['id']);
-        selected = rows.where((row) => _int(row['id']) == selectedId).firstOrNull;
+        Map<String, dynamic>? refreshed;
+        for (final row in rows) {
+          if (_int(row['id']) == selectedId) {
+            refreshed = row;
+            break;
+          }
+        }
+        selected = refreshed;
       }
     } on ApiException catch (exception) {
       error = exception.message;
@@ -93,7 +100,10 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
     if (widget.module == 'inicio') {
       return RefreshIndicator(
         onRefresh: _load,
-        child: ListView(padding: const EdgeInsets.fromLTRB(26, 24, 26, 38), children: [_dashboard(_map(data))]),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(26, 24, 26, 38),
+          children: [_dashboard(_map(data))],
+        ),
       );
     }
     return _collectionExperience(_items(data));
@@ -108,10 +118,8 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
       children: [
         VitiPageHeader(
           title: 'Centro de operación',
-          subtitle: 'Una vista ejecutiva de solicitudes, desarrollo, entregas y soporte. Entra al dato y continúa el trabajo sin abandonar el contexto.',
-          actions: [
-            IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh)),
-          ],
+          subtitle: 'Solicitudes, proyectos, entregas y soporte en una vista ejecutiva. Entra al dato y continúa el trabajo sin perder contexto.',
+          actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))],
         ),
         const SizedBox(height: 20),
         _quickActions(),
@@ -132,7 +140,7 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 1040;
-            final requestBlock = _recentPanel(
+            final requestsPanel = _recentPanel(
               title: 'Solicitudes recientes',
               subtitle: 'Entrada de nuevos trabajos',
               icon: Icons.assignment_outlined,
@@ -140,7 +148,7 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
               kind: 'solicitud',
               onViewAll: () => widget.onNavigate('solicitudes'),
             );
-            final projectBlock = _recentPanel(
+            final projectsPanel = _recentPanel(
               title: 'Proyectos recientes',
               subtitle: 'Desarrollo y progreso',
               icon: Icons.account_tree_outlined,
@@ -148,8 +156,11 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
               kind: 'proyecto',
               onViewAll: () => widget.onNavigate('proyectos'),
             );
-            if (!wide) return Column(children: [requestBlock, const SizedBox(height: 14), projectBlock]);
-            return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: requestBlock), const SizedBox(width: 14), Expanded(child: projectBlock)]);
+            if (!wide) return Column(children: [requestsPanel, const SizedBox(height: 14), projectsPanel]);
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [Expanded(child: requestsPanel), const SizedBox(width: 14), Expanded(child: projectsPanel)],
+            );
           },
         ),
       ],
@@ -182,7 +193,14 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
     );
   }
 
-  Widget _recentPanel({required String title, required String subtitle, required IconData icon, required List<Map<String, dynamic>> items, required String kind, required VoidCallback onViewAll}) {
+  Widget _recentPanel({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required List<Map<String, dynamic>> items,
+    required String kind,
+    required VoidCallback onViewAll,
+  }) {
     return VitiPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,45 +237,72 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
       final matchesStatus = statusFilter == 'todos' || rowStatus == statusFilter;
       return matchesQuery && matchesStatus;
     }).toList(growable: false);
-
     final statuses = <String>{for (final row in source) _statusFor(meta.kind, row)}..removeWhere((value) => value.trim().isEmpty);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 1040;
-        final content = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            VitiPageHeader(
-              title: meta.title,
-              subtitle: '${meta.subtitle} · ${source.length} registrados · ${filtered.length} visibles',
-              actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))],
-            ),
-            const SizedBox(height: 18),
-            _filters(statuses),
-            const SizedBox(height: 16),
-            if (filtered.isEmpty)
-              const VitiEmptyState(title: 'Sin resultados', message: 'Ajusta la búsqueda o los filtros para encontrar registros.')
-            else if (desktop)
-              SizedBox(
-                height: constraints.maxHeight - 158,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 6, child: _entityList(meta.kind, filtered, scrollable: true)),
-                    const SizedBox(width: 14),
-                    Expanded(flex: 4, child: selected == null ? _emptyInspector(meta) : SingleChildScrollView(child: _inspector(meta.kind, selected!))),
-                  ],
+        if (!desktop) {
+          return RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 34),
+              children: [
+                VitiPageHeader(
+                  title: meta.title,
+                  subtitle: '${meta.subtitle} · ${source.length} registrados · ${filtered.length} visibles',
+                  actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))],
                 ),
-              )
-            else
-              _entityList(meta.kind, filtered, scrollable: false),
-          ],
-        );
+                const SizedBox(height: 16),
+                _filters(statuses),
+                const SizedBox(height: 14),
+                if (filtered.isEmpty)
+                  const VitiEmptyState(title: 'Sin resultados', message: 'Ajusta la búsqueda o los filtros para encontrar registros.')
+                else
+                  _entityList(meta.kind, filtered, scrollable: false),
+              ],
+            ),
+          );
+        }
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 32),
-          child: desktop ? content : SingleChildScrollView(child: content),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              VitiPageHeader(
+                title: meta.title,
+                subtitle: '${meta.subtitle} · ${source.length} registrados · ${filtered.length} visibles',
+                actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))],
+              ),
+              const SizedBox(height: 16),
+              _filters(statuses),
+              const SizedBox(height: 14),
+              Expanded(
+                child: filtered.isEmpty
+                    ? const VitiEmptyState(title: 'Sin resultados', message: 'Ajusta la búsqueda o los filtros para encontrar registros.')
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(flex: 6, child: _entityList(meta.kind, filtered, scrollable: true)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            flex: 4,
+                            child: selected == null
+                                ? _emptyInspector(meta)
+                                : VitiPanel(
+                                    padding: EdgeInsets.zero,
+                                    child: SingleChildScrollView(
+                                      padding: const EdgeInsets.all(16),
+                                      child: _inspector(meta.kind, selected!),
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -269,14 +314,9 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        VitiSearchField(
-          controller: searchController,
-          hint: 'Buscar por código, empresa, cliente o nombre…',
-          onChanged: (value) => setState(() => query = value),
-        ),
+        VitiSearchField(controller: searchController, hint: 'Buscar por código, empresa, cliente o nombre…', onChanged: (value) => setState(() => query = value)),
         ChoiceChip(label: const Text('Todos'), selected: statusFilter == 'todos', onSelected: (_) => setState(() => statusFilter = 'todos')),
-        for (final value in statuses.take(5))
-          ChoiceChip(label: Text(vitiPretty(value)), selected: statusFilter == value, onSelected: (_) => setState(() => statusFilter = value)),
+        for (final value in statuses.take(5)) ChoiceChip(label: Text(vitiPretty(value)), selected: statusFilter == value, onSelected: (_) => setState(() => statusFilter = value)),
       ],
     );
   }
@@ -311,7 +351,7 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
   Widget _emptyInspector(_ModuleMeta meta) {
     return VitiEmptyState(
       title: 'Selecciona un registro',
-      message: 'La ficha rápida aparecerá aquí sin cubrir la lista. Desde ella puedes abrir el detalle y continuar el trabajo.',
+      message: 'La ficha rápida aparecerá aquí. Puedes revisar contexto y ejecutar la acción principal sin cubrir la lista.',
       icon: meta.icon,
     );
   }
@@ -319,11 +359,17 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
   Widget _inspector(String kind, Map<String, dynamic> row) {
     final company = _map(row['empresa']);
     final client = _map(row['cliente']);
+    final catalog = _map(row['catalogo']);
+    final appKey = _text(catalog['clave'], '');
+    final nativeApp = kind == 'aplicacion' && const {'servicio-tecnico', 'electrofrio'}.contains(appKey);
+
     final fields = switch (kind) {
       'empresa' => <(String, String, IconData)>[
           ('Código', _text(row['codigo'], 'Sin código'), Icons.tag),
           ('Actividad', _text(row['actividad'], 'No definida'), Icons.work_outline),
-          ('Responsable', _text(_map(row['cliente'])['nombre'], 'Sin responsable'), Icons.person_outline),
+          ('Responsable', _text(client['nombre'], 'Sin responsable'), Icons.person_outline),
+          ('Teléfono', _text(client['telefono'], _text(row['telefono'], 'No registrado')), Icons.phone_outlined),
+          ('Ciudad', _text(row['ciudad'], 'No registrada'), Icons.location_city_outlined),
         ],
       'solicitud' => <(String, String, IconData)>[
           ('Código', _text(row['codigo'], 'Sin código'), Icons.tag),
@@ -342,29 +388,30 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
           ('Entorno', vitiPretty('${row['entorno'] ?? ''}'), Icons.cloud_outlined),
           ('Versión', _text(row['version'], 'Sin versión'), Icons.commit_outlined),
           ('Acceso', row['acceso_cliente'] == true ? 'Entregado' : 'Pendiente', Icons.key_outlined),
+          ('Proyecto', _text(_map(row['proyecto'])['codigo'], 'Sin proyecto'), Icons.account_tree_outlined),
         ],
       _ => const <(String, String, IconData)>[],
     };
+
+    final actions = <Widget>[
+      if (nativeApp) FilledButton.icon(onPressed: () => _openNativeApplication(row), icon: const Icon(Icons.open_in_new), label: const Text('Abrir sistema')),
+      if (!nativeApp) FilledButton.icon(onPressed: () => _openDetails(kind, row), icon: const Icon(Icons.open_in_new), label: const Text('Abrir detalle')),
+      if (kind == 'proyecto') OutlinedButton.icon(onPressed: () => _showAddProgress(row), icon: const Icon(Icons.add_task), label: const Text('Registrar avance')),
+      if (kind == 'aplicacion') OutlinedButton.icon(onPressed: () => _openDetails(kind, row), icon: const Icon(Icons.tune), label: Text(nativeApp ? 'Operar app' : 'Ver operación')),
+    ];
 
     return VitiInspector(
       title: _rowTitle(kind, row),
       subtitle: _rowSubtitle(kind, row).replaceAll('\n', ' · '),
       icon: _kindIcon(kind),
       badges: _rowBadges(kind, row),
+      actions: actions,
       children: [
         for (final field in fields) VitiKeyValue(field.$1, field.$2, icon: field.$3),
         if (kind == 'proyecto') ...[
           const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(value: (_int(row['progreso']).clamp(0, 100)) / 100, minHeight: 7),
-          ),
+          ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: (_int(row['progreso']).clamp(0, 100)) / 100, minHeight: 7)),
         ],
-      ],
-      actions: [
-        FilledButton.icon(onPressed: () => _openDetails(kind, row), icon: const Icon(Icons.open_in_new), label: const Text('Abrir detalle')),
-        if (kind == 'proyecto') OutlinedButton.icon(onPressed: () => _showAddProgress(row), icon: const Icon(Icons.add_task), label: const Text('Registrar avance')),
-        if (kind == 'aplicacion') OutlinedButton.icon(onPressed: () => _openDetails(kind, row), icon: const Icon(Icons.tune), label: const Text('Operar app')),
       ],
     );
   }
@@ -393,26 +440,53 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
     }
   }
 
+  Future<void> _openNativeApplication(Map<String, dynamic> row) async {
+    final id = _int(row['id']);
+    if (id <= 0) return;
+    try {
+      final app = await widget.repository.adminApp(id);
+      if (!mounted) return;
+      final catalog = _map(app['catalogo']);
+      final company = _map(app['empresa']);
+      final key = _text(catalog['clave'], '');
+      final companyId = _int(app['empresa_id'] ?? company['id']);
+      if (!const {'servicio-tecnico', 'electrofrio'}.contains(key) || companyId <= 0) {
+        await _showApplication(app);
+        return;
+      }
+      final name = _text(app['nombre'], 'VITI App');
+      final Widget screen = key == 'electrofrio'
+          ? ElectrofrioAppScreen(appName: name, adminMode: true, companyId: companyId)
+          : BusinessAppScreen(repository: widget.repository, appKey: key, appName: name, adminMode: true, companyId: companyId);
+      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+      if (mounted) await _load();
+    } on ApiException catch (exception) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+    }
+  }
+
   Future<void> _showGenericDetails(String kind, Map<String, dynamic> details) async {
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => Dialog(
-        insetPadding: const EdgeInsets.all(28),
-        child: SizedBox(
-          width: 820,
-          height: kind == 'proyecto' ? 690 : 560,
-          child: _GenericEntityDetails(
-            kind: kind,
-            data: details,
-            onAddProgress: kind == 'proyecto'
-                ? () {
-                    Navigator.of(dialogContext).pop();
-                    _showAddProgress(details);
-                  }
-                : null,
+      builder: (dialogContext) {
+        final size = MediaQuery.sizeOf(dialogContext);
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 900, maxHeight: size.height * .82),
+            child: _GenericEntityDetails(
+              kind: kind,
+              data: details,
+              onAddProgress: kind == 'proyecto'
+                  ? () {
+                      Navigator.of(dialogContext).pop();
+                      _showAddProgress(details);
+                    }
+                  : null,
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -446,12 +520,13 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
             }
           }
 
+          final media = MediaQuery.sizeOf(dialogBodyContext);
           return Dialog(
-            insetPadding: const EdgeInsets.all(28),
-            child: SizedBox(
-              width: 920,
-              height: 690,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 960, maxHeight: media.height * .86),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(22, 18, 12, 16),
@@ -459,24 +534,99 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
                       children: [
                         Container(width: 44, height: 44, decoration: BoxDecoration(color: Theme.of(dialogBodyContext).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(14)), child: Icon(key == 'electrofrio' ? Icons.ac_unit : Icons.apps_outlined)),
                         const SizedBox(width: 12),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_text(app['nombre'], 'Aplicación VITI'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), const SizedBox(height: 5), Wrap(spacing: 6, children: [VitiStatusBadge(vitiPretty('${app['entorno']}'), tone: vitiToneForStatus('${app['entorno']}')), VitiStatusBadge(vitiPretty('${app['estado']}'), tone: vitiToneForStatus('${app['estado']}')), VitiStatusBadge(app['acceso_cliente'] == true ? 'Entregada' : 'Entrega pendiente', tone: app['acceso_cliente'] == true ? VitiTone.success : VitiTone.warning)])])),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_text(app['nombre'], 'Aplicación VITI'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                              const SizedBox(height: 5),
+                              Wrap(spacing: 6, runSpacing: 6, children: [
+                                VitiStatusBadge(vitiPretty('${app['entorno']}'), tone: vitiToneForStatus('${app['entorno']}')),
+                                VitiStatusBadge(vitiPretty('${app['estado']}'), tone: vitiToneForStatus('${app['estado']}')),
+                                VitiStatusBadge(app['acceso_cliente'] == true ? 'Entregada' : 'Entrega pendiente', tone: app['acceso_cliente'] == true ? VitiTone.success : VitiTone.warning),
+                              ]),
+                            ],
+                          ),
+                        ),
                         IconButton(onPressed: () => Navigator.of(dialogContext).pop(), icon: const Icon(Icons.close)),
                       ],
                     ),
                   ),
                   const Divider(height: 1),
-                  Expanded(
-                    child: ListView(
+                  Flexible(
+                    child: SingleChildScrollView(
                       padding: const EdgeInsets.all(22),
-                      children: [
-                        LayoutBuilder(builder: (context, constraints) {
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
                           final wide = constraints.maxWidth >= 760;
-                          final info = VitiPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Información', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), const SizedBox(height: 14), VitiKeyValue('Versión', _text(app['version'], 'Sin versión'), icon: Icons.commit_outlined), VitiKeyValue('Empresa', _text(company['nombre_comercial'], 'Sin empresa'), icon: Icons.business_outlined), VitiKeyValue('Proyecto', _text(project['nombre'], _text(project['codigo'], 'Sin proyecto')), icon: Icons.account_tree_outlined)]));
-                          final operation = VitiPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Operación', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), const SizedBox(height: 5), Text('Controla ciclo, acceso y entra al sistema sin abandonar VITI.', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 14), Wrap(spacing: 8, runSpacing: 8, children: [if (native && companyId > 0) FilledButton.icon(onPressed: () async {final appName = _text(app['nombre'], 'VITI App'); Navigator.of(dialogContext).pop(); if (!hostContext.mounted) return; final Widget screen = key == 'electrofrio' ? ElectrofrioAppScreen(appName: appName, adminMode: true, companyId: companyId) : BusinessAppScreen(repository: widget.repository, appKey: key, appName: appName, adminMode: true, companyId: companyId); await Navigator.of(hostContext).push(MaterialPageRoute<void>(builder: (_) => screen)); if (mounted) await _load();}, icon: const Icon(Icons.open_in_new), label: const Text('Abrir sistema')), OutlinedButton.icon(onPressed: () async {final cycle = await _showAppCycleDialog(app); if (cycle == null) return; await perform(() async {app = await widget.repository.updateAdminAppCycle(appId: _int(app['id']), environment: '${cycle['entorno']}', state: '${cycle['estado']}');});}, icon: const Icon(Icons.tune), label: const Text('Cambiar ciclo')), if (app['acceso_cliente'] == true) OutlinedButton.icon(onPressed: () => perform(() async => app = await widget.repository.revokeAdminApp(_int(app['id']))), icon: const Icon(Icons.lock_outline), label: const Text('Revocar acceso')) else OutlinedButton.icon(onPressed: () => perform(() async => app = await widget.repository.deliverAdminApp(_int(app['id']))), icon: const Icon(Icons.key_outlined), label: const Text('Entregar acceso'))]), if (!native) ...[const SizedBox(height: 12), Text('El control administrativo está disponible; esta app todavía no tiene workspace nativo Flutter.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12))]]));
+                          final info = VitiPanel(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Información', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                                const SizedBox(height: 14),
+                                VitiKeyValue('Versión', _text(app['version'], 'Sin versión'), icon: Icons.commit_outlined),
+                                VitiKeyValue('Empresa', _text(company['nombre_comercial'], 'Sin empresa'), icon: Icons.business_outlined),
+                                VitiKeyValue('Proyecto', _text(project['nombre'], _text(project['codigo'], 'Sin proyecto')), icon: Icons.account_tree_outlined),
+                                VitiKeyValue('Entorno', vitiPretty('${app['entorno'] ?? ''}'), icon: Icons.cloud_outlined),
+                              ],
+                            ),
+                          );
+                          final operation = VitiPanel(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Operación', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                                const SizedBox(height: 5),
+                                Text('Controla ciclo, acceso y entra al sistema sin abandonar VITI.', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                                const SizedBox(height: 14),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (native && companyId > 0)
+                                      FilledButton.icon(
+                                        onPressed: () async {
+                                          final appName = _text(app['nombre'], 'VITI App');
+                                          Navigator.of(dialogContext).pop();
+                                          if (!hostContext.mounted) return;
+                                          final Widget screen = key == 'electrofrio'
+                                              ? ElectrofrioAppScreen(appName: appName, adminMode: true, companyId: companyId)
+                                              : BusinessAppScreen(repository: widget.repository, appKey: key, appName: appName, adminMode: true, companyId: companyId);
+                                          await Navigator.of(hostContext).push(MaterialPageRoute<void>(builder: (_) => screen));
+                                          if (mounted) await _load();
+                                        },
+                                        icon: const Icon(Icons.open_in_new),
+                                        label: const Text('Abrir sistema'),
+                                      ),
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final cycle = await _showAppCycleDialog(app);
+                                        if (cycle == null) return;
+                                        await perform(() async {
+                                          app = await widget.repository.updateAdminAppCycle(appId: _int(app['id']), environment: '${cycle['entorno']}', state: '${cycle['estado']}');
+                                        });
+                                      },
+                                      icon: const Icon(Icons.tune),
+                                      label: const Text('Cambiar ciclo'),
+                                    ),
+                                    if (app['acceso_cliente'] == true)
+                                      OutlinedButton.icon(onPressed: () => perform(() async => app = await widget.repository.revokeAdminApp(_int(app['id']))), icon: const Icon(Icons.lock_outline), label: const Text('Revocar acceso'))
+                                    else
+                                      OutlinedButton.icon(onPressed: () => perform(() async => app = await widget.repository.deliverAdminApp(_int(app['id']))), icon: const Icon(Icons.key_outlined), label: const Text('Entregar acceso')),
+                                  ],
+                                ),
+                                if (!native) ...[
+                                  const SizedBox(height: 12),
+                                  Text('El control administrativo está disponible; esta app todavía no tiene workspace nativo Flutter.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                                ],
+                              ],
+                            ),
+                          );
                           if (!wide) return Column(children: [info, const SizedBox(height: 12), operation]);
                           return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: info), const SizedBox(width: 12), Expanded(child: operation)]);
-                        }),
-                      ],
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -507,7 +657,10 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
               ],
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')), FilledButton(onPressed: () => Navigator.pop(dialogContext, <String, dynamic>{'entorno': environment, 'estado': state}), child: const Text('Guardar'))],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, <String, dynamic>{'entorno': environment, 'estado': state}), child: const Text('Guardar')),
+          ],
         ),
       ),
     );
@@ -539,7 +692,15 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
                   const SizedBox(height: 12),
                   TextField(controller: descriptionController, maxLines: 4, decoration: const InputDecoration(labelText: 'Descripción')),
                   const SizedBox(height: 12),
-                  Row(children: [Expanded(child: DropdownButtonFormField<String>(initialValue: phase, decoration: const InputDecoration(labelText: 'Fase'), items: [for (final item in phases) DropdownMenuItem(value: item, child: Text(vitiPretty(item)))], onChanged: saving ? null : (value) => setDialogState(() => phase = value ?? phase))), const SizedBox(width: 12), Expanded(child: DropdownButtonFormField<String>(initialValue: area, decoration: const InputDecoration(labelText: 'Área'), items: [for (final item in areas) DropdownMenuItem(value: item, child: Text(vitiPretty(item)))], onChanged: saving ? null : (value) => setDialogState(() => area = value ?? area)))]),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 500;
+                      final phaseField = DropdownButtonFormField<String>(initialValue: phase, decoration: const InputDecoration(labelText: 'Fase'), items: [for (final item in phases) DropdownMenuItem(value: item, child: Text(vitiPretty(item)))], onChanged: saving ? null : (value) => setDialogState(() => phase = value ?? phase));
+                      final areaField = DropdownButtonFormField<String>(initialValue: area, decoration: const InputDecoration(labelText: 'Área'), items: [for (final item in areas) DropdownMenuItem(value: item, child: Text(vitiPretty(item)))], onChanged: saving ? null : (value) => setDialogState(() => area = value ?? area));
+                      if (compact) return Column(children: [phaseField, const SizedBox(height: 12), areaField]);
+                      return Row(children: [Expanded(child: phaseField), const SizedBox(width: 12), Expanded(child: areaField)]);
+                    },
+                  ),
                   const SizedBox(height: 14),
                   Row(children: [Text('Progreso $progress%', style: const TextStyle(fontWeight: FontWeight.w800)), Expanded(child: Slider(value: progress.toDouble(), min: 0, max: 100, divisions: 20, label: '$progress%', onChanged: saving ? null : (value) => setDialogState(() => progress = value.round())))]),
                   CheckboxListTile(contentPadding: EdgeInsets.zero, value: visibleClient, onChanged: saving ? null : (value) => setDialogState(() => visibleClient = value ?? true), title: const Text('Visible para la empresa')),
@@ -550,24 +711,26 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
           actions: [
             TextButton(onPressed: saving ? null : () => Navigator.of(dialogContext).pop(), child: const Text('Cancelar')),
             FilledButton.icon(
-              onPressed: saving ? null : () async {
-                if (titleController.text.trim().isEmpty) return;
-                setDialogState(() => saving = true);
-                try {
-                  await widget.repository.addProjectProgress(projectId: _int(project['id']), phase: phase, title: titleController.text.trim(), description: descriptionController.text, progress: progress, area: area, visibleClient: visibleClient);
-                  if (!dialogContext.mounted) return;
-                  Navigator.of(dialogContext).pop();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avance registrado correctamente.')));
-                    await _load();
-                  }
-                } on ApiException catch (exception) {
-                  if (dialogContext.mounted) {
-                    ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(exception.message)));
-                    setDialogState(() => saving = false);
-                  }
-                }
-              },
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (titleController.text.trim().isEmpty) return;
+                      setDialogState(() => saving = true);
+                      try {
+                        await widget.repository.addProjectProgress(projectId: _int(project['id']), phase: phase, title: titleController.text.trim(), description: descriptionController.text, progress: progress, area: area, visibleClient: visibleClient);
+                        if (!dialogContext.mounted) return;
+                        Navigator.of(dialogContext).pop();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Avance registrado correctamente.')));
+                          await _load();
+                        }
+                      } on ApiException catch (exception) {
+                        if (dialogContext.mounted) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(exception.message)));
+                          setDialogState(() => saving = false);
+                        }
+                      }
+                    },
               icon: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add_task),
               label: const Text('Guardar avance'),
             ),
@@ -582,6 +745,7 @@ class _AdminModuleScreenState extends State<AdminModuleScreen> {
 
 class _GenericEntityDetails extends StatelessWidget {
   const _GenericEntityDetails({required this.kind, required this.data, this.onAddProgress});
+
   final String kind;
   final Map<String, dynamic> data;
   final VoidCallback? onAddProgress;
@@ -590,18 +754,42 @@ class _GenericEntityDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = _rowTitle(kind, data);
     final fields = _detailFields(kind, data);
+    final related = _relatedCounts(kind, data);
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 18, 12, 16),
-          child: Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(14)), child: Icon(_kindIcon(kind))), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), const SizedBox(height: 5), Wrap(spacing: 6, children: _rowBadges(kind, data))])), IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close))]),
+          child: Row(
+            children: [
+              Container(width: 44, height: 44, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(14)), child: Icon(_kindIcon(kind))),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), const SizedBox(height: 5), Wrap(spacing: 6, runSpacing: 6, children: _rowBadges(kind, data))])),
+              IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
+            ],
+          ),
         ),
         const Divider(height: 1),
-        Expanded(
+        Flexible(
           child: ListView(
+            shrinkWrap: true,
             padding: const EdgeInsets.all(22),
             children: [
-              VitiPanel(child: Wrap(spacing: 22, runSpacing: 14, children: [for (final field in fields) SizedBox(width: 220, child: VitiKeyValue(field.$1, field.$2))])),
+              VitiPanel(
+                child: Wrap(
+                  spacing: 22,
+                  runSpacing: 14,
+                  children: [for (final field in fields) SizedBox(width: 220, child: VitiKeyValue(field.$1, field.$2))],
+                ),
+              ),
+              if (related.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [for (final item in related) VitiMetricTile(label: item.$1, value: '${item.$2}', icon: item.$3, tone: VitiTone.info)],
+                ),
+              ],
               if (kind == 'proyecto') ...[
                 const SizedBox(height: 16),
                 VitiPanel(
@@ -696,19 +884,64 @@ List<(String, String)> _detailFields(String kind, Map<String, dynamic> data) {
   final client = _map(data['cliente']);
   final responsible = _map(data['responsable']);
   return switch (kind) {
-    'empresa' => [('Código', _text(data['codigo'], 'Sin código')), ('Actividad', _text(data['actividad'], 'No definida')), ('Estado', vitiPretty('${data['estado']}')), ('Responsable', _text(client['nombre'], 'Sin responsable')), ('Teléfono', _text(client['telefono'], _text(data['telefono'], 'No registrado'))), ('Ciudad', _text(data['ciudad'], 'No registrada'))],
-    'solicitud' => [('Código', _text(data['codigo'], 'Sin código')), ('Estado', vitiPretty('${data['estado']}')), ('Prioridad', vitiPretty('${data['prioridad']}')), ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')), ('Cliente', _text(client['nombre'], 'Sin cliente')), ('Tipo', _text(data['tipo_proyecto'], 'Sistema VITI'))],
-    'proyecto' => [('Código', _text(data['codigo'], 'Sin código')), ('Fase', vitiPretty('${data['fase']}')), ('Estado', vitiPretty('${data['estado']}')), ('Progreso', '${data['progreso'] ?? 0}%'), ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')), ('Cliente', _text(client['nombre'], 'Sin cliente')), ('Responsable', _text(responsible['nombre'], 'Sin asignar')), ('Beta', _date(data['fecha_beta'])), ('Entrega', _date(data['fecha_entrega']))],
+    'empresa' => [
+        ('Código', _text(data['codigo'], 'Sin código')),
+        ('Actividad', _text(data['actividad'], 'No definida')),
+        ('Estado', vitiPretty('${data['estado']}')),
+        ('Responsable', _text(client['nombre'], 'Sin responsable')),
+        ('Teléfono', _text(client['telefono'], _text(data['telefono'], 'No registrado'))),
+        ('Ciudad', _text(data['ciudad'], 'No registrada')),
+      ],
+    'solicitud' => [
+        ('Código', _text(data['codigo'], 'Sin código')),
+        ('Estado', vitiPretty('${data['estado']}')),
+        ('Prioridad', vitiPretty('${data['prioridad']}')),
+        ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')),
+        ('Cliente', _text(client['nombre'], 'Sin cliente')),
+        ('Tipo', _text(data['tipo_proyecto'], 'Sistema VITI')),
+        if (_text(data['descripcion'], '').isNotEmpty) ('Descripción', _text(data['descripcion'], '')),
+      ],
+    'proyecto' => [
+        ('Código', _text(data['codigo'], 'Sin código')),
+        ('Fase', vitiPretty('${data['fase']}')),
+        ('Estado', vitiPretty('${data['estado']}')),
+        ('Progreso', '${data['progreso'] ?? 0}%'),
+        ('Empresa', _text(company['nombre_comercial'], 'Sin empresa')),
+        ('Cliente', _text(client['nombre'], 'Sin cliente')),
+        ('Responsable', _text(responsible['nombre'], 'Sin asignar')),
+        ('Beta', _date(data['fecha_beta'])),
+        ('Entrega', _date(data['fecha_entrega'])),
+      ],
     _ => const [],
   };
+}
+
+List<(String, int, IconData)> _relatedCounts(String kind, Map<String, dynamic> data) {
+  if (kind != 'empresa') return const [];
+  final requests = _items(data['solicitudes']);
+  final projects = _items(data['proyectos']);
+  final apps = _items(data['aplicaciones']);
+  final result = <(String, int, IconData)>[];
+  if (requests.isNotEmpty) result.add(('Solicitudes', requests.length, Icons.assignment_outlined));
+  if (projects.isNotEmpty) result.add(('Proyectos', projects.length, Icons.account_tree_outlined));
+  if (apps.isNotEmpty) result.add(('Aplicaciones', apps.length, Icons.apps_outlined));
+  return result;
 }
 
 class _AdminError extends StatelessWidget {
   const _AdminError({required this.message, required this.retry});
   final String message;
   final Future<void> Function() retry;
+
   @override
-  Widget build(BuildContext context) => Center(child: VitiEmptyState(title: 'No se pudo cargar VITI', message: message, icon: Icons.cloud_off, action: FilledButton.icon(onPressed: retry, icon: const Icon(Icons.refresh), label: const Text('Reintentar'))));
+  Widget build(BuildContext context) => Center(
+        child: VitiEmptyState(
+          title: 'No se pudo cargar VITI',
+          message: message,
+          icon: Icons.cloud_off,
+          action: FilledButton.icon(onPressed: retry, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+        ),
+      );
 }
 
 List<Map<String, dynamic>> _items(dynamic value) => value is List ? value.whereType<Map<String, dynamic>>().toList(growable: false) : const <Map<String, dynamic>>[];
