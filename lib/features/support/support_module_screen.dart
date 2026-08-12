@@ -105,7 +105,7 @@ class _SupportModuleScreenState extends State<SupportModuleScreen> {
               child: Container(
                 padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .7))),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(titleBuilder(row), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w850)), const SizedBox(height: 4), Text(subtitleBuilder(row), style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 7), VitiStatusBadge(vitiPretty(statusBuilder(row)), tone: vitiToneForStatus(statusBuilder(row)))]),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(titleBuilder(row), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text(subtitleBuilder(row), style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)), const SizedBox(height: 7), VitiStatusBadge(vitiPretty(statusBuilder(row)), tone: vitiToneForStatus(statusBuilder(row)))]),
               ),
             ),
         ],
