@@ -47,18 +47,18 @@ class _LoginScreenState extends State<LoginScreen> {
           if (desktop) {
             return Row(
               children: [
-                Expanded(flex: 11, child: _BrandPanel()),
-                Expanded(flex: 9, child: _LoginArea(desktop: true)),
+                Expanded(flex: 11, child: _brandPanel()),
+                Expanded(flex: 9, child: _loginArea(desktop: true)),
               ],
             );
           }
-          return _LoginArea(desktop: false);
+          return _loginArea(desktop: false);
         },
       ),
     );
   }
 
-  Widget _LoginArea({required bool desktop}) {
+  Widget _loginArea({required bool desktop}) {
     final colors = Theme.of(context).colorScheme;
     return Stack(
       children: [
@@ -204,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _BrandPanel() {
+  Widget _brandPanel() {
     return Container(
       color: VitiTheme.navy,
       padding: const EdgeInsets.all(52),
