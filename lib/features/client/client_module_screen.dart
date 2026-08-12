@@ -85,9 +85,15 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
     if (error != null) {
-      return Center(child: VitiEmptyState(title: 'No se pudo cargar tu espacio', message: error!, icon: Icons.cloud_off, action: FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Reintentar'))));
+      return Center(
+        child: VitiEmptyState(
+          title: 'No se pudo cargar tu espacio',
+          message: error!,
+          icon: Icons.cloud_off,
+          action: FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+        ),
+      );
     }
-
     return switch (widget.module) {
       'inicio' => _home(),
       'solicitudes' => _requests(),
@@ -137,10 +143,10 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
             builder: (context, constraints) {
               final wide = constraints.maxWidth >= 980;
               final requestPanel = latestRequest.isEmpty
-                  ? VitiEmptyState(title: 'Crea tu primera solicitud', message: 'Una nueva idea genera su propia SOL y queda separada de solicitudes anteriores.', icon: Icons.assignment_add, action: FilledButton.icon(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Nueva solicitud')))
+                  ? VitiEmptyState(title: 'Crea tu primera solicitud', message: 'Una nueva necesidad genera su propia SOL y queda separada de solicitudes anteriores.', icon: Icons.assignment_add, action: FilledButton.icon(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Nueva solicitud')))
                   : _requestPanel(latestRequest);
               final projectPanel = project.isEmpty
-                  ? const VitiEmptyState(title: 'Sin proyecto activo', message: 'Cuando una solicitud sea aprobada y convertida, el progreso aparecerá aquí.', icon: Icons.account_tree_outlined)
+                  ? const VitiEmptyState(title: 'Sin proyecto activo', message: 'Cuando una solicitud aprobada se convierta en proyecto, el progreso aparecerá aquí.', icon: Icons.account_tree_outlined)
                   : _projectPanel(project, compact: true);
               if (!wide) return Column(children: [requestPanel, const SizedBox(height: 14), projectPanel]);
               return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: requestPanel), const SizedBox(width: 14), Expanded(child: projectPanel)]);
@@ -153,18 +159,52 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
 
   Widget _identityPanel(Map<String, dynamic> client, List<Map<String, dynamic>> companies) {
     final colors = Theme.of(context).colorScheme;
+    final company = companies.isEmpty ? <String, dynamic>{} : companies.first;
+    final phone = _text(client['telefono'], '');
+    final ci = _text(client['ci'], '');
+    final contactComplete = phone.isNotEmpty || ci.isNotEmpty;
+
     return VitiPanel(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 720;
+          final compact = constraints.maxWidth < 760;
           final identity = Row(
             children: [
               Container(width: 54, height: 54, decoration: BoxDecoration(gradient: LinearGradient(colors: [colors.primary, colors.secondary]), borderRadius: BorderRadius.circular(17)), child: const Icon(Icons.person_outline, color: Colors.white)),
               const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_text(client['nombre'], 'Mi cuenta'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text('${_text(client['telefono'], 'Sin teléfono')} · ${_text(client['ci'], 'CI no registrado')}', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12))])),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_text(client['nombre'], 'Mi cuenta'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (company.isNotEmpty) VitiStatusBadge(_text(company['nombre_comercial'], 'Empresa activa'), tone: VitiTone.info, icon: Icons.business_outlined),
+                        VitiStatusBadge(contactComplete ? 'Cuenta identificada' : 'Datos de contacto pendientes', tone: contactComplete ? VitiTone.success : VitiTone.warning, icon: contactComplete ? Icons.verified_user_outlined : Icons.info_outline),
+                      ],
+                    ),
+                    if (phone.isNotEmpty || ci.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text([if (phone.isNotEmpty) phone, if (ci.isNotEmpty) 'CI $ci'].join(' · '), style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                    ],
+                  ],
+                ),
+              ),
             ],
           );
-          final actions = Wrap(spacing: 8, runSpacing: 8, children: [FilledButton.icon(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Nueva solicitud')), OutlinedButton.icon(onPressed: () => widget.onNavigate('mensajes'), icon: const Icon(Icons.forum_outlined), label: const Text('Escribir a VITI')), OutlinedButton.icon(onPressed: () => widget.onNavigate('pagos'), icon: const Icon(Icons.payments_outlined), label: const Text('Mis pagos'))]);
+          final actions = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Nueva solicitud')),
+              OutlinedButton.icon(onPressed: () => widget.onNavigate('mensajes'), icon: const Icon(Icons.forum_outlined), label: const Text('Escribir a VITI')),
+              OutlinedButton.icon(onPressed: () => widget.onNavigate('pagos'), icon: const Icon(Icons.payments_outlined), label: const Text('Mis pagos')),
+            ],
+          );
           if (compact) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [identity, const SizedBox(height: 14), actions]);
           return Row(children: [Expanded(child: identity), const SizedBox(width: 14), actions]);
         },
@@ -189,12 +229,12 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
       action = _newRequest;
       actionLabel = 'Crear solicitud';
     } else if (requestStatus == 'borrador') {
-      title = 'Completa tu solicitud';
-      message = 'La SOL todavía está en borrador. Completa la información para que AGR Studio pueda revisarla.';
+      title = 'Tu nueva solicitud está en borrador';
+      message = 'La SOL ya fue creada y se mantiene separada del historial anterior. Puedes revisar su estado o escribir a VITI para continuar.';
       icon = Icons.edit_note;
       tone = VitiTone.warning;
       action = () => widget.onNavigate('solicitudes');
-      actionLabel = 'Abrir solicitudes';
+      actionLabel = 'Ver solicitud';
     } else if (project.isEmpty) {
       title = 'AGR Studio está revisando tu solicitud';
       message = 'Puedes seguir el estado y comunicarte por el buzón mientras se define alcance y propuesta.';
@@ -222,15 +262,21 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
     return VitiPanel(
       tone: tone,
       selected: true,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(width: 46, height: 46, decoration: BoxDecoration(color: color.withValues(alpha: .13), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color)),
-          const SizedBox(width: 13),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(message, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.35))])),
-          const SizedBox(width: 12),
-          FilledButton(onPressed: action, child: Text(actionLabel)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+          final info = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 46, height: 46, decoration: BoxDecoration(color: color.withValues(alpha: .13), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color)),
+              const SizedBox(width: 13),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(message, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.35))])),
+            ],
+          );
+          final button = FilledButton(onPressed: action, child: Text(actionLabel));
+          if (compact) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [info, const SizedBox(height: 12), button]);
+          return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [Expanded(child: info), const SizedBox(width: 14), button]);
+        },
       ),
     );
   }
@@ -242,7 +288,11 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(26, 24, 26, 38),
         children: [
-          VitiPageHeader(title: 'Mis solicitudes', subtitle: 'Cada nueva necesidad genera una SOL independiente; las anteriores permanecen como historial.', actions: [FilledButton.icon(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Nueva solicitud'))]),
+          VitiPageHeader(
+            title: 'Mis solicitudes',
+            subtitle: 'Cada nueva necesidad genera una SOL independiente; las anteriores permanecen como historial.',
+            actions: [FilledButton.icon(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Nueva solicitud'))],
+          ),
           const SizedBox(height: 18),
           if (requests.isEmpty) VitiEmptyState(title: 'Todavía no tienes solicitudes', message: 'Crea una solicitud para iniciar un nuevo proceso con AGR Studio.', icon: Icons.assignment_add, action: FilledButton.icon(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Nueva solicitud'))),
           for (final request in requests) _requestRow(request),
@@ -253,11 +303,15 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
 
   Widget _requestRow(Map<String, dynamic> request) {
     final status = '${request['estado'] ?? 'borrador'}';
+    final priority = '${request['prioridad'] ?? 'normal'}';
     return VitiEntityRow(
       title: '${_text(request['codigo'], 'SOL')} · ${_text(request['titulo'], 'Solicitud de sistema')}',
       subtitle: _text(request['empresa_nombre'], _text(_map(request['empresa'])['nombre_comercial'], 'Empresa por definir')),
       icon: Icons.description_outlined,
-      badges: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status)), if (request['prioridad'] != null) VitiStatusBadge('Prioridad ${vitiPretty('${request['prioridad']}')}', tone: VitiTone.neutral)],
+      badges: [
+        VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status)),
+        VitiStatusBadge('Prioridad ${vitiPretty(priority)}', tone: priority == 'alta' || priority == 'urgente' ? VitiTone.warning : VitiTone.neutral),
+      ],
       onTap: () => _showRequest(request),
     );
   }
@@ -269,8 +323,14 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
       subtitle: 'Tu solicitud más reciente',
       icon: Icons.assignment_outlined,
       badges: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status))],
-      actions: [OutlinedButton.icon(onPressed: () => _showRequest(request), icon: const Icon(Icons.open_in_new), label: const Text('Ver solicitud')), TextButton(onPressed: () => widget.onNavigate('solicitudes'), child: const Text('Ver historial'))],
-      children: [VitiKeyValue('Empresa', _text(request['empresa_nombre'], _text(_map(request['empresa'])['nombre_comercial'], 'Sin empresa')), icon: Icons.business_outlined), VitiKeyValue('Prioridad', vitiPretty('${request['prioridad'] ?? 'normal'}'), icon: Icons.flag_outlined)],
+      actions: [
+        OutlinedButton.icon(onPressed: () => _showRequest(request), icon: const Icon(Icons.open_in_new), label: const Text('Ver solicitud')),
+        TextButton(onPressed: () => widget.onNavigate('solicitudes'), child: const Text('Ver historial')),
+      ],
+      children: [
+        VitiKeyValue('Empresa', _text(request['empresa_nombre'], _text(_map(request['empresa'])['nombre_comercial'], 'Sin empresa')), icon: Icons.business_outlined),
+        VitiKeyValue('Prioridad', vitiPretty('${request['prioridad'] ?? 'normal'}'), icon: Icons.flag_outlined),
+      ],
     );
   }
 
@@ -291,7 +351,7 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
   }
 
   Widget _projectPanel(Map<String, dynamic> project, {required bool compact}) {
-    final progress = (double.tryParse('${project['progreso'] ?? 0}') ?? 0).clamp(0, 100);
+    final progress = (double.tryParse('${project['progreso'] ?? 0}') ?? 0).clamp(0.0, 100.0).toDouble();
     final app = _map(project['aplicacion']);
     final updates = _items(project['avances']);
     final phase = '${project['fase'] ?? 'desarrollo'}';
@@ -305,10 +365,16 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
           Row(children: [Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: progress / 100, minHeight: 9))), const SizedBox(width: 12), Text('${progress.toInt()}%', style: const TextStyle(fontWeight: FontWeight.w900))]),
           if (!compact) ...[
             const SizedBox(height: 18),
-            LayoutBuilder(builder: (context, constraints) {
-              final fields = <Widget>[VitiKeyValue('Fase actual', vitiPretty(phase), icon: Icons.route_outlined), VitiKeyValue('Estado', vitiPretty(status), icon: Icons.flag_outlined), if (app.isNotEmpty) VitiKeyValue('Aplicación', _text(app['nombre'], 'VITI App'), icon: Icons.apps_outlined), if (app.isNotEmpty) VitiKeyValue('Entorno', vitiPretty('${app['entorno'] ?? ''}'), icon: Icons.cloud_outlined)];
-              return Wrap(spacing: 24, runSpacing: 4, children: [for (final field in fields) SizedBox(width: 230, child: field)]);
-            }),
+            Wrap(
+              spacing: 24,
+              runSpacing: 4,
+              children: [
+                SizedBox(width: 230, child: VitiKeyValue('Fase actual', vitiPretty(phase), icon: Icons.route_outlined)),
+                SizedBox(width: 230, child: VitiKeyValue('Estado', vitiPretty(status), icon: Icons.flag_outlined)),
+                if (app.isNotEmpty) SizedBox(width: 230, child: VitiKeyValue('Aplicación', _text(app['nombre'], 'VITI App'), icon: Icons.apps_outlined)),
+                if (app.isNotEmpty) SizedBox(width: 230, child: VitiKeyValue('Entorno', vitiPretty('${app['entorno'] ?? ''}'), icon: Icons.cloud_outlined)),
+              ],
+            ),
             const SizedBox(height: 10),
             const Divider(),
             const SizedBox(height: 10),
@@ -332,10 +398,12 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
           VitiPageHeader(title: 'Mis aplicaciones', subtitle: 'Tus sistemas conectados a VITI, con estado de acceso y operación claramente separados.', actions: [IconButton.filledTonal(onPressed: _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh))]),
           const SizedBox(height: 18),
           if (apps.isEmpty) const VitiEmptyState(title: 'No hay aplicaciones registradas', message: 'Cuando un proyecto sea entregado, su aplicación aparecerá aquí.', icon: Icons.apps_outlined),
-          LayoutBuilder(builder: (context, constraints) {
-            final width = constraints.maxWidth >= 980 ? (constraints.maxWidth - 14) / 2 : constraints.maxWidth;
-            return Wrap(spacing: 14, runSpacing: 14, children: [for (final app in apps) SizedBox(width: width, child: _appCard(app))]);
-          }),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth >= 980 ? (constraints.maxWidth - 14) / 2 : constraints.maxWidth;
+              return Wrap(spacing: 14, runSpacing: 14, children: [for (final app in apps) SizedBox(width: width, child: _appCard(app))]);
+            },
+          ),
         ],
       ),
     );
@@ -383,18 +451,84 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
 
   Future<void> _showRequest(Map<String, dynamic> request) async {
     final status = '${request['estado'] ?? 'borrador'}';
+    final priority = '${request['prioridad'] ?? 'normal'}';
+    final company = _text(request['empresa_nombre'], _text(_map(request['empresa'])['nombre_comercial'], 'Sin empresa'));
+    final description = _text(request['descripcion'], 'Todavía no hay una descripción registrada en esta solicitud.');
+    final created = _date(request['created_at']);
+    final updated = _date(request['updated_at']);
+
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('${_text(request['codigo'], 'SOL')} · ${_text(request['titulo'], 'Solicitud')}'),
-        content: SizedBox(
-          width: 600,
-          child: VitiPanel(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [Wrap(spacing: 6, runSpacing: 6, children: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status)), VitiStatusBadge('Prioridad ${vitiPretty('${request['prioridad'] ?? 'normal'}')}', tone: VitiTone.neutral)]), const SizedBox(height: 16), VitiKeyValue('Empresa', _text(request['empresa_nombre'], _text(_map(request['empresa'])['nombre_comercial'], 'Sin empresa')), icon: Icons.business_outlined), if (_text(request['descripcion'], '').isNotEmpty) VitiKeyValue('Descripción', _text(request['descripcion'], ''), icon: Icons.notes)]),
+      builder: (dialogContext) {
+        final size = MediaQuery.sizeOf(dialogContext);
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 760, maxHeight: size.height * .82),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 12, 16),
+                  child: Row(
+                    children: [
+                      Container(width: 44, height: 44, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.assignment_outlined)),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${_text(request['codigo'], 'SOL')} · ${_text(request['titulo'], 'Solicitud')}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), const SizedBox(height: 6), Wrap(spacing: 6, runSpacing: 6, children: [VitiStatusBadge(vitiPretty(status), tone: vitiToneForStatus(status)), VitiStatusBadge('Prioridad ${vitiPretty(priority)}', tone: priority == 'alta' || priority == 'urgente' ? VitiTone.warning : VitiTone.neutral)])])),
+                      IconButton(onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close)),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(22),
+                    children: [
+                      VitiPanel(
+                        child: Wrap(
+                          spacing: 24,
+                          runSpacing: 10,
+                          children: [
+                            SizedBox(width: 220, child: VitiKeyValue('Empresa', company, icon: Icons.business_outlined)),
+                            SizedBox(width: 220, child: VitiKeyValue('Estado', vitiPretty(status), icon: Icons.fact_check_outlined)),
+                            SizedBox(width: 220, child: VitiKeyValue('Prioridad', vitiPretty(priority), icon: Icons.flag_outlined)),
+                            if (created != 'No definida') SizedBox(width: 220, child: VitiKeyValue('Creada', created, icon: Icons.event_outlined)),
+                            if (updated != 'No definida') SizedBox(width: 220, child: VitiKeyValue('Última actualización', updated, icon: Icons.update_outlined)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      VitiPanel(
+                        tone: VitiTone.info,
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Descripción', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)), const SizedBox(height: 8), Text(description, style: const TextStyle(height: 1.45))]),
+                      ),
+                      const SizedBox(height: 14),
+                      VitiPanel(
+                        tone: status == 'borrador' ? VitiTone.warning : VitiTone.primary,
+                        selected: true,
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(status == 'borrador' ? Icons.edit_note : Icons.route_outlined), const SizedBox(width: 10), Expanded(child: Text(status == 'borrador' ? 'Esta solicitud está separada de tus procesos anteriores y permanece en borrador hasta continuar su revisión con VITI.' : 'Puedes seguir el avance desde esta pantalla y usar el buzón para cualquier consulta relacionada.', style: const TextStyle(height: 1.4)))]),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton.icon(onPressed: () {Navigator.pop(dialogContext); widget.onNavigate('mensajes');}, icon: const Icon(Icons.forum_outlined), label: const Text('Escribir a VITI')),
+                      const SizedBox(width: 8),
+                      FilledButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar')),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar'))],
-      ),
+        );
+      },
     );
   }
 }
@@ -402,3 +536,9 @@ class _ClientModuleScreenState extends State<ClientModuleScreen> {
 Map<String, dynamic> _map(dynamic value) => value is Map<String, dynamic> ? value : <String, dynamic>{};
 List<Map<String, dynamic>> _items(dynamic value) => value is List ? value.whereType<Map<String, dynamic>>().toList(growable: false) : const <Map<String, dynamic>>[];
 String _text(dynamic value, String fallback) => value == null || value.toString().trim().isEmpty ? fallback : value.toString();
+String _date(dynamic value) {
+  final parsed = DateTime.tryParse('${value ?? ''}')?.toLocal();
+  if (parsed == null) return 'No definida';
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${two(parsed.day)}/${two(parsed.month)}/${parsed.year}';
+}
