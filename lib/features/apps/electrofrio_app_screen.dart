@@ -586,6 +586,7 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
 
   Future<void> _saveEquipment({Map<String, dynamic>? initial}) async {
     final clients = await _safe('clientes');
+    if (!mounted) return;
     if (clients.isEmpty) {
       _notice('Primero registra un cliente.');
       return;
@@ -605,6 +606,7 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
 
   Future<void> _saveTechnician({Map<String, dynamic>? initial}) async {
     final users = await _safe('usuarios-negocio');
+    if (!mounted) return;
     final draft = await showElectroTechnicianForm(context, users: users, initial: initial);
     if (draft == null) return;
     await _mutate(() async {
@@ -636,6 +638,7 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
     final clients = await _safe('clientes');
     final equipment = await _safe('equipos');
     final technicians = await _safe('tecnicos');
+    if (!mounted) return;
     if (clients.isEmpty) {
       _notice('Primero registra un cliente.');
       return;
