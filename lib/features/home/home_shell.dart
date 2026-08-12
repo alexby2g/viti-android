@@ -192,7 +192,7 @@ class _HomeShellState extends State<HomeShell> {
                             shrinkWrap: true,
                             padding: const EdgeInsets.all(10),
                             itemCount: filtered.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 3),
+                            separatorBuilder: (_, _) => const SizedBox(height: 3),
                             itemBuilder: (context, index) {
                               final item = filtered[index];
                               final destinationIndex = destinations.indexWhere((candidate) => candidate.key == item.key);
