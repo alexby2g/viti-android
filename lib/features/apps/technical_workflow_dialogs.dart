@@ -1,6 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/ui/viti_ui.dart';
+
 Future<Map<String, dynamic>?> showDiagnosisProposalForm(
   BuildContext context, {
   required Map<String, dynamic> order,
@@ -14,54 +16,76 @@ Future<Map<String, dynamic>?> showDiagnosisProposalForm(
   final result = await showDialog<Map<String, dynamic>>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Diagnóstico y propuesta'),
+      titlePadding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
+      title: _DialogHeader(
+        icon: Icons.fact_check_outlined,
+        title: 'Diagnóstico y propuesta',
+        subtitle: 'Documenta la falla encontrada y la solución que se presentará al cliente.',
+        tone: VitiTone.primary,
+      ),
       content: SizedBox(
-        width: 650,
+        width: 680,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: diagnosis,
-                minLines: 4,
-                maxLines: 7,
-                decoration: const InputDecoration(
-                  labelText: 'Diagnóstico técnico *',
-                  hintText: 'Describe la falla encontrada, pruebas realizadas y causa probable.',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: proposal,
-                minLines: 4,
-                maxLines: 7,
-                decoration: const InputDecoration(
-                  labelText: 'Propuesta al cliente *',
-                  hintText: 'Explica la solución, alcance del trabajo y qué se realizará si autoriza.',
-                  border: OutlineInputBorder(),
+              VitiPanel(
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: diagnosis,
+                      minLines: 4,
+                      maxLines: 7,
+                      decoration: const InputDecoration(
+                        labelText: 'Diagnóstico técnico *',
+                        hintText: 'Falla encontrada, pruebas realizadas y causa probable.',
+                        prefixIcon: Icon(Icons.search_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: proposal,
+                      minLines: 4,
+                      maxLines: 7,
+                      decoration: const InputDecoration(
+                        labelText: 'Propuesta al cliente *',
+                        hintText: 'Solución, alcance del trabajo y qué se realizará si autoriza.',
+                        prefixIcon: Icon(Icons.handshake_outlined),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (showFinancial) ...[
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: cost,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Costo del servicio', suffixText: 'Bs', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: discount,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Descuento', suffixText: 'Bs', border: OutlineInputBorder()),
-                      ),
-                    ),
-                  ],
+                VitiPanel(
+                  tone: VitiTone.info,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 520;
+                      final fields = [
+                        Expanded(
+                          child: TextField(
+                            controller: cost,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Costo del servicio', suffixText: 'Bs', prefixIcon: Icon(Icons.request_quote_outlined)),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: discount,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Descuento', suffixText: 'Bs', prefixIcon: Icon(Icons.percent_outlined)),
+                          ),
+                        ),
+                      ];
+                      if (compact) {
+                        return Column(children: [fields[0], const SizedBox(height: 12), fields[1]]);
+                      }
+                      return Row(children: [fields[0], const SizedBox(width: 12), fields[1]]);
+                    },
+                  ),
                 ),
               ],
             ],
@@ -106,35 +130,57 @@ Future<Map<String, dynamic>?> showClientDecisionForm(BuildContext context, {requ
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setDialogState) => AlertDialog(
-        title: const Text('Decisión del cliente'),
+        titlePadding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
+        title: const _DialogHeader(
+          icon: Icons.how_to_reg_outlined,
+          title: 'Decisión del cliente',
+          subtitle: 'Registra la autorización o el rechazo de la propuesta técnica.',
+          tone: VitiTone.warning,
+        ),
         content: SizedBox(
-          width: 520,
+          width: 560,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'aceptado', icon: Icon(Icons.check_circle_outline), label: Text('Acepta')),
-                  ButtonSegment(value: 'rechazado', icon: Icon(Icons.cancel_outlined), label: Text('Rechaza')),
-                ],
-                selected: <String>{decision},
-                onSelectionChanged: (value) => setDialogState(() => decision = value.first),
-              ),
-              if (decision == 'rechazado') ...[
-                const SizedBox(height: 14),
-                TextField(
-                  controller: reason,
-                  minLines: 3,
-                  maxLines: 5,
-                  decoration: const InputDecoration(labelText: 'Motivo del rechazo *', border: OutlineInputBorder()),
+              VitiPanel(
+                selected: true,
+                tone: decision == 'aceptado' ? VitiTone.success : VitiTone.danger,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'aceptado', icon: Icon(Icons.check_circle_outline), label: Text('Acepta propuesta')),
+                        ButtonSegment(value: 'rechazado', icon: Icon(Icons.cancel_outlined), label: Text('Rechaza propuesta')),
+                      ],
+                      selected: <String>{decision},
+                      onSelectionChanged: (value) => setDialogState(() => decision = value.first),
+                    ),
+                    const SizedBox(height: 12),
+                    VitiStatusBadge(
+                      decision == 'aceptado' ? 'La orden pasará a reparación' : 'La orden se cerrará sin reparación',
+                      tone: decision == 'aceptado' ? VitiTone.success : VitiTone.danger,
+                      icon: decision == 'aceptado' ? Icons.build_outlined : Icons.block_outlined,
+                    ),
+                    if (decision == 'rechazado') ...[
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: reason,
+                        minLines: 3,
+                        maxLines: 5,
+                        decoration: const InputDecoration(labelText: 'Motivo del rechazo *', prefixIcon: Icon(Icons.notes_outlined)),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
-          FilledButton(
+          FilledButton.icon(
             onPressed: () {
               if (decision == 'rechazado' && reason.text.trim().isEmpty) {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('Registra el motivo del rechazo.')));
@@ -142,7 +188,8 @@ Future<Map<String, dynamic>?> showClientDecisionForm(BuildContext context, {requ
               }
               Navigator.pop(dialogContext, <String, dynamic>{'decision': decision, 'motivo_rechazo': reason.text.trim()});
             },
-            child: const Text('Registrar decisión'),
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Registrar decisión'),
           ),
         ],
       ),
@@ -161,38 +208,58 @@ Future<Map<String, dynamic>?> showRepairCompletionForm(BuildContext context, {re
   final result = await showDialog<Map<String, dynamic>>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Trabajo realizado y garantía'),
+      titlePadding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
+      title: const _DialogHeader(
+        icon: Icons.build_circle_outlined,
+        title: 'Trabajo realizado y garantía',
+        subtitle: 'Cierra la reparación técnica y deja documentada la cobertura ofrecida.',
+        tone: VitiTone.success,
+      ),
       content: SizedBox(
-        width: 650,
+        width: 680,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: work,
-                minLines: 4,
-                maxLines: 7,
-                decoration: const InputDecoration(labelText: 'Trabajo realizado *', border: OutlineInputBorder()),
+              VitiPanel(
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: work,
+                      minLines: 4,
+                      maxLines: 7,
+                      decoration: const InputDecoration(labelText: 'Trabajo realizado *', prefixIcon: Icon(Icons.home_repair_service_outlined)),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: recommendations,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: const InputDecoration(labelText: 'Recomendaciones', prefixIcon: Icon(Icons.tips_and_updates_outlined)),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: recommendations,
-                minLines: 3,
-                maxLines: 5,
-                decoration: const InputDecoration(labelText: 'Recomendaciones', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: warrantyDays,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Días de garantía', suffixText: 'días', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: warrantyTerms,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Condiciones de garantía', border: OutlineInputBorder()),
+              VitiPanel(
+                tone: VitiTone.success,
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: warrantyDays,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Días de garantía', suffixText: 'días', prefixIcon: Icon(Icons.verified_outlined)),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: warrantyTerms,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(labelText: 'Condiciones de garantía', prefixIcon: Icon(Icons.description_outlined)),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -213,7 +280,7 @@ Future<Map<String, dynamic>?> showRepairCompletionForm(BuildContext context, {re
               'condiciones_garantia': warrantyTerms.text.trim(),
             });
           },
-          icon: const Icon(Icons.build_circle_outlined),
+          icon: const Icon(Icons.science_outlined),
           label: const Text('Pasar a pruebas'),
         ),
       ],
@@ -233,7 +300,7 @@ Future<Map<String, dynamic>?> showEvidenceForm(BuildContext context, {required S
     allowMultiple: false,
     withData: false,
   );
-  if (picked == null || picked.files.isEmpty || picked.files.first.path == null) return null;
+  if (!context.mounted || picked == null || picked.files.isEmpty || picked.files.first.path == null) return null;
 
   final file = picked.files.first;
   var stage = const {'recepcion', 'diagnostico', 'reparacion', 'pruebas', 'entrega'}.contains(defaultStage) ? defaultStage : 'recepcion';
@@ -243,22 +310,33 @@ Future<Map<String, dynamic>?> showEvidenceForm(BuildContext context, {required S
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setDialogState) => AlertDialog(
-        title: const Text('Agregar evidencia'),
+        titlePadding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
+        title: const _DialogHeader(
+          icon: Icons.add_a_photo_outlined,
+          title: 'Agregar evidencia',
+          subtitle: 'Relaciona la fotografía con la etapa correcta de la orden.',
+          tone: VitiTone.info,
+        ),
         content: SizedBox(
-          width: 540,
+          width: 560,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const CircleAvatar(child: Icon(Icons.image_outlined)),
-                title: Text(file.name),
-                subtitle: Text('${(file.size / 1024).toStringAsFixed(1)} KB'),
+              VitiPanel(
+                tone: VitiTone.info,
+                child: Row(
+                  children: [
+                    Container(width: 42, height: 42, decoration: BoxDecoration(color: vitiToneColor(context, VitiTone.info).withValues(alpha: .10), borderRadius: BorderRadius.circular(12)), child: Icon(Icons.image_outlined, color: vitiToneColor(context, VitiTone.info))),
+                    const SizedBox(width: 11),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(file.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text('${(file.size / 1024).toStringAsFixed(1)} KB', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant))])),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: stage,
-                decoration: const InputDecoration(labelText: 'Etapa', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Etapa', prefixIcon: Icon(Icons.route_outlined)),
                 items: const [
                   DropdownMenuItem(value: 'recepcion', child: Text('Recepción')),
                   DropdownMenuItem(value: 'diagnostico', child: Text('Diagnóstico')),
@@ -273,7 +351,7 @@ Future<Map<String, dynamic>?> showEvidenceForm(BuildContext context, {required S
                 controller: description,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Descripción', prefixIcon: Icon(Icons.notes_outlined)),
               ),
             ],
           ),
@@ -296,6 +374,28 @@ Future<Map<String, dynamic>?> showEvidenceForm(BuildContext context, {required S
   );
   description.dispose();
   return result;
+}
+
+class _DialogHeader extends StatelessWidget {
+  const _DialogHeader({required this.icon, required this.title, required this.subtitle, required this.tone});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VitiTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = vitiToneColor(context, tone);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(width: 42, height: 42, decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color, size: 21)),
+        const SizedBox(width: 11),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text(subtitle, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.3))])),
+      ],
+    );
+  }
 }
 
 double? _double(String value) {
