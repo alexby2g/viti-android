@@ -113,7 +113,11 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
 
   Future<void> _attach() async {
     if (selectedId == null || sending) return;
-    final result = await FilePicker.pickFiles(type: FileType.custom, allowMultiple: false, allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']);
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowMultiple: false,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
+    );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.single;
     if (file.path == null || file.path!.isEmpty) {
@@ -238,7 +242,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
               children: [
                 CircleAvatar(radius: 19, backgroundColor: selected ? colors.primary : colors.surfaceContainerHighest, foregroundColor: selected ? colors.onPrimary : colors.onSurfaceVariant, child: Text(_initial(_contactName(row)), style: const TextStyle(fontWeight: FontWeight.w900))),
                 const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(_contactName(row), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: unread > 0 ? FontWeight.w900 : FontWeight.w750))), if (unread > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: colors.primary, borderRadius: BorderRadius.circular(99)), child: Text('$unread', style: TextStyle(fontSize: 10, color: colors.onPrimary, fontWeight: FontWeight.w900)))]), const SizedBox(height: 3), Text(_preview(row), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant, height: 1.25)), const SizedBox(height: 5), Text(_time(_latestDate(row)), style: TextStyle(fontSize: 9, color: colors.onSurfaceVariant))])),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(_contactName(row), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: unread > 0 ? FontWeight.w900 : FontWeight.w700))), if (unread > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: colors.primary, borderRadius: BorderRadius.circular(99)), child: Text('$unread', style: TextStyle(fontSize: 10, color: colors.onPrimary, fontWeight: FontWeight.w900)))]), const SizedBox(height: 3), Text(_preview(row), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant, height: 1.25)), const SizedBox(height: 5), Text(_time(_latestDate(row)), style: TextStyle(fontSize: 9, color: colors.onSurfaceVariant))])),
               ],
             ),
           ),
@@ -260,7 +264,7 @@ class _MessageModuleScreenState extends State<MessageModuleScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              if (mobile) IconButton(onPressed: () => setState(() {selectedId = null; current = null;}), icon: const Icon(Icons.arrow_back)),
+              if (mobile) IconButton(onPressed: () => setState(() { selectedId = null; current = null; }), icon: const Icon(Icons.arrow_back)),
               CircleAvatar(radius: 20, backgroundColor: colors.primaryContainer, child: const Icon(Icons.support_agent)),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_contactName(conversation), style: const TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 2), Text(_text(conversation['asunto'], 'Conversación VITI'), style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant))])),
