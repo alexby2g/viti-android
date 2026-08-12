@@ -121,6 +121,19 @@ class VitiRepository {
   Future<Map<String, dynamic>> revokeAdminApp(int appId) async => _map((await _api.postJson('/aplicaciones/$appId/revocar', const <String, dynamic>{}))['data']);
 
   Future<Map<String, dynamic>> adminBilling() async => _map((await _api.getJson('/pagos'))['data']);
+
+  Future<Map<String, dynamic>> confirmProjectProof(int paymentId) async =>
+      _map((await _api.postJson('/pagos/proyecto-pagos/$paymentId/confirmar', const <String, dynamic>{}))['data']);
+
+  Future<Map<String, dynamic>> rejectProjectProof(int paymentId, String reason) async =>
+      _map((await _api.postJson('/pagos/proyecto-pagos/$paymentId/rechazar', <String, dynamic>{'motivo': reason.trim()}))['data']);
+
+  Future<Map<String, dynamic>> confirmSubscriptionProof(int paymentId) async =>
+      _map((await _api.postJson('/pagos/suscripcion-pagos/$paymentId/confirmar', const <String, dynamic>{}))['data']);
+
+  Future<Map<String, dynamic>> rejectSubscriptionProof(int paymentId, String reason) async =>
+      _map((await _api.postJson('/pagos/suscripcion-pagos/$paymentId/rechazar', <String, dynamic>{'motivo': reason.trim()}))['data']);
+
   Future<List<Map<String, dynamic>>> adminInbox() async => _list((await _api.getJson('/buzon?per_page=100'))['data']);
   Future<Map<String, dynamic>> adminConversation(int id) async => _map((await _api.getJson('/buzon/$id'))['data']);
   Future<void> sendAdminMessage(int id, String message) async => _api.postJson('/buzon/$id/mensajes', <String, dynamic>{'mensaje': message});
