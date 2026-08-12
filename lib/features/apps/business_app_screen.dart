@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../data/viti_repository.dart';
 import 'technical_order_form.dart';
+import 'technical_order_workspace.dart';
 import 'technical_people_forms.dart';
 
 class BusinessAppScreen extends StatefulWidget {
@@ -10,12 +11,16 @@ class BusinessAppScreen extends StatefulWidget {
     required this.repository,
     required this.appKey,
     required this.appName,
+    this.adminMode = false,
+    this.companyId,
     super.key,
   });
 
   final VitiRepository repository;
   final String appKey;
   final String appName;
+  final bool adminMode;
+  final int? companyId;
 
   @override
   State<BusinessAppScreen> createState() => _BusinessAppScreenState();
@@ -67,7 +72,11 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
   Future<void> _initialize() async {
     if (isTechnical) {
       try {
-        appState = await widget.repository.businessAppState(widget.appKey);
+        appState = await widget.repository.businessAppState(
+          widget.appKey,
+          admin: widget.adminMode,
+          companyId: widget.companyId,
+        );
       } on ApiException catch (exception) {
         if (!mounted) return;
         setState(() {
@@ -89,8 +98,8 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
     });
     try {
       data = module == 'inicio'
-          ? await widget.repository.businessAppSummary(widget.appKey)
-          : await widget.repository.businessAppList(widget.appKey, module);
+          ? await widget.repository.businessAppSummary(widget.appKey, admin: widget.adminMode, companyId: widget.companyId)
+          : await widget.repository.businessAppList(widget.appKey, module, admin: widget.adminMode, companyId: widget.companyId);
     } on ApiException catch (exception) {
       error = exception.message;
     } catch (_) {
@@ -131,7 +140,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
                   child: Center(
                     child: Chip(
                       avatar: Icon(canManage ? Icons.edit_outlined : Icons.visibility_outlined, size: 17),
-                      label: Text(canManage ? 'Administración' : 'Solo lectura'),
+                      label: Text(widget.adminMode ? 'Administración VITI' : canManage ? 'Administración' : 'Consulta'),
                     ),
                   ),
                 ),
@@ -305,15 +314,39 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
   IconData get currentModuleIcon => _allModules.firstWhere((item) => item.key == module, orElse: () => _allModules.first).icon;
 
   Widget _orderTile(Map<String, dynamic> row) {
+    final colors = Theme.of(context).colorScheme;
+    final state = '${row['estado'] ?? 'recibido'}';
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-        leading: const CircleAvatar(child: Icon(Icons.assignment_outlined)),
-        title: Text('${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}', style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('${_pretty(row['estado'])} · ${_text(row['equipo_tipo'], 'Sin equipo')}${row['tecnico_nombre'] != null ? ' · ${row['tecnico_nombre']}' : ''}${row['saldo'] != null && hasPayments ? ' · Saldo ${row['saldo']} Bs' : ''}'),
-        trailing: const Icon(Icons.chevron_right),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: () => _showOrder(row),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            children: [
+              CircleAvatar(child: Icon(_stateIcon(state))),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 3),
+                    Text('${_stateLabel(state)} · ${_text(row['equipo_tipo'], 'Sin equipo')}${row['tecnico_nombre'] != null ? ' · ${row['tecnico_nombre']}' : ''}', style: TextStyle(color: colors.onSurfaceVariant)),
+                    if (row['saldo'] != null && hasPayments) ...[
+                      const SizedBox(height: 3),
+                      Text('Total ${_money(row['total'])} Bs · Pagado ${_money(row['pagado'])} Bs · Saldo ${_money(row['saldo'])} Bs', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+                    ],
+                  ],
+                ),
+              ),
+              Chip(label: Text(_stateLabel(state))),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -359,8 +392,17 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(_text(row['nombre'], _text(row['codigo'], 'Detalle'))),
-        content: SizedBox(width: 620, child: SingleChildScrollView(child: _detailFields(row))),
+        content: SizedBox(width: 650, child: SingleChildScrollView(child: _detailFields(row))),
         actions: [
+          if (canManage && const {'clientes', 'equipos', 'tecnicos'}.contains(module))
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _deleteRecord(row);
+              },
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Eliminar'),
+            ),
           if (canManage && const {'clientes', 'equipos', 'tecnicos'}.contains(module))
             FilledButton.icon(
               onPressed: () {
@@ -387,33 +429,28 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
   }
 
   Future<void> _showOrder(Map<String, dynamic> row) async {
-    final closed = const {'entregado', 'sin_reparacion'}.contains('${row['estado']}');
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}'),
-        content: SizedBox(width: 700, child: SingleChildScrollView(child: _detailFields(row))),
-        actions: [
-          if (canManage && !closed)
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _saveOrder(initial: row);
-              },
-              icon: const Icon(Icons.edit_calendar_outlined),
-              label: const Text('Editar recepción'),
-            ),
-          if (isTechnical && hasPayments && _number(row['saldo']) > 0)
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _registerPayment(row);
-              },
-              icon: const Icon(Icons.payments_outlined),
-              label: const Text('Registrar pago'),
-            ),
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar')),
-        ],
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        child: SizedBox(
+          width: 1120,
+          height: 800,
+          child: TechnicalOrderWorkspace(
+            repository: widget.repository,
+            initialOrder: row,
+            canManage: canManage,
+            hasPayments: hasPayments,
+            adminMode: widget.adminMode,
+            companyId: widget.companyId,
+            onEditReception: (current) {
+              Navigator.of(dialogContext).pop();
+              _saveOrder(initial: current);
+            },
+            onChanged: _load,
+          ),
+        ),
       ),
     );
   }
@@ -448,11 +485,13 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
         await widget.repository.createTechnicalClient(
           name: '${draft['nombre']}', phone: '${draft['telefono']}', whatsapp: '${draft['whatsapp']}',
           address: '${draft['direccion']}', notes: '${draft['observaciones']}', active: draft['activo'] == true,
+          admin: widget.adminMode, companyId: widget.companyId,
         );
       } else {
         await widget.repository.updateTechnicalClient(
           id: _int(initial['id']), name: '${draft['nombre']}', phone: '${draft['telefono']}', whatsapp: '${draft['whatsapp']}',
           address: '${draft['direccion']}', notes: '${draft['observaciones']}', active: draft['activo'] == true,
+          admin: widget.adminMode, companyId: widget.companyId,
         );
       }
       module = 'clientes';
@@ -486,11 +525,13 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
         await widget.repository.createTechnicalEquipment(
           clientId: args.clientId, type: args.type, brand: args.brand, model: args.model, serial: args.serial,
           specifications: args.specifications, accessories: args.accessories, receptionState: args.receptionState, notes: args.notes, active: args.active,
+          admin: widget.adminMode, companyId: widget.companyId,
         );
       } else {
         await widget.repository.updateTechnicalEquipment(
           id: _int(initial['id']), clientId: args.clientId, type: args.type, brand: args.brand, model: args.model, serial: args.serial,
           specifications: args.specifications, accessories: args.accessories, receptionState: args.receptionState, notes: args.notes, active: args.active,
+          admin: widget.adminMode, companyId: widget.companyId,
         );
       }
       module = 'equipos';
@@ -501,7 +542,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
   Future<void> _saveTechnician({Map<String, dynamic>? initial}) async {
     List<Map<String, dynamic>> users = const [];
     try {
-      users = await widget.repository.technicalBusinessUsers();
+      users = await widget.repository.technicalBusinessUsers(admin: widget.adminMode, companyId: widget.companyId);
     } on ApiException catch (exception) {
       if (mounted) _notice(exception.message);
       return;
@@ -514,11 +555,13 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
         await widget.repository.createTechnicalTechnician(
           userId: _nullableInt(draft['usuario_id']), name: '${draft['nombre']}', phone: '${draft['telefono']}',
           specialty: '${draft['especialidad']}', active: draft['activo'] == true,
+          admin: widget.adminMode, companyId: widget.companyId,
         );
       } else {
         await widget.repository.updateTechnicalTechnician(
           id: _int(initial['id']), userId: _nullableInt(draft['usuario_id']), name: '${draft['nombre']}', phone: '${draft['telefono']}',
           specialty: '${draft['especialidad']}', active: draft['activo'] == true,
+          admin: widget.adminMode, companyId: widget.companyId,
         );
       }
       module = 'tecnicos';
@@ -553,6 +596,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
           clientId: _int(draft['cliente_id']), equipmentId: _nullableInt(draft['equipo_id']), technicianId: _nullableInt(draft['tecnico_id']),
           receptionDate: '${draft['fecha_recepcion']}', scheduledDate: '${draft['fecha_programada']}', scheduledTime: '${draft['hora_programada']}',
           priority: '${draft['prioridad']}', reportedProblem: '${draft['problema_reportado']}', serviceCost: serviceCost,
+          admin: widget.adminMode, companyId: widget.companyId,
         );
       } else {
         await widget.repository.updateTechnicalOrder(
@@ -561,6 +605,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
           priority: '${draft['prioridad']}', reportedProblem: '${draft['problema_reportado']}',
           diagnosis: initial['diagnostico']?.toString(), proposal: initial['propuesta']?.toString(), workDone: initial['trabajo_realizado']?.toString(),
           recommendations: initial['recomendaciones']?.toString(), serviceCost: serviceCost, discount: discount,
+          admin: widget.adminMode, companyId: widget.companyId,
         );
       }
       module = 'ordenes';
@@ -570,11 +615,48 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
 
   Future<List<Map<String, dynamic>>> _safeList(String resource) async {
     try {
-      return await widget.repository.businessAppList('servicio-tecnico', resource);
+      return await widget.repository.businessAppList('servicio-tecnico', resource, admin: widget.adminMode, companyId: widget.companyId);
     } on ApiException catch (exception) {
       if (mounted) _notice(exception.message);
       return const [];
     }
+  }
+
+  Future<void> _deleteRecord(Map<String, dynamic> row) async {
+    final id = _int(row['id']);
+    if (id <= 0) return;
+    final label = switch (module) {
+      'clientes' => 'cliente',
+      'equipos' => 'computadora',
+      'tecnicos' => 'técnico',
+      _ => 'registro',
+    };
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Eliminar $label'),
+        content: Text('VITI solo permitirá eliminar este $label si no tiene historial asociado. Si ya forma parte de una orden, deberá conservarse o marcarse como inactivo.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Eliminar')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _mutate(() async {
+      switch (module) {
+        case 'clientes':
+          await widget.repository.deleteTechnicalClient(id, admin: widget.adminMode, companyId: widget.companyId);
+          break;
+        case 'equipos':
+          await widget.repository.deleteTechnicalEquipment(id, admin: widget.adminMode, companyId: widget.companyId);
+          break;
+        case 'tecnicos':
+          await widget.repository.deleteTechnicalTechnician(id, admin: widget.adminMode, companyId: widget.companyId);
+          break;
+      }
+      await _load();
+    }, '${label[0].toUpperCase()}${label.substring(1)} eliminado.');
   }
 
   Future<void> _mutate(Future<void> Function() action, String success) async {
@@ -590,59 +672,6 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
 
   void _notice(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  Future<void> _registerPayment(Map<String, dynamic> order) async {
-    final amount = TextEditingController();
-    final reference = TextEditingController();
-    var method = 'efectivo';
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Registrar pago · ${_text(order['codigo'], 'Orden')}'),
-          content: SizedBox(width: 480, child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Monto', suffixText: 'Bs', helperText: 'Saldo: ${order['saldo'] ?? 0} Bs', border: const OutlineInputBorder())),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              initialValue: method,
-              decoration: const InputDecoration(labelText: 'Método', border: OutlineInputBorder()),
-              items: const [
-                DropdownMenuItem(value: 'efectivo', child: Text('Efectivo')),
-                DropdownMenuItem(value: 'qr', child: Text('QR')),
-                DropdownMenuItem(value: 'transferencia', child: Text('Transferencia')),
-                DropdownMenuItem(value: 'tarjeta', child: Text('Tarjeta')),
-                DropdownMenuItem(value: 'otro', child: Text('Otro')),
-              ],
-              onChanged: (value) => setDialogState(() => method = value ?? method),
-            ),
-            const SizedBox(height: 10),
-            TextField(controller: reference, decoration: const InputDecoration(labelText: 'Referencia', border: OutlineInputBorder())),
-          ])),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
-            FilledButton(
-              onPressed: () async {
-                final parsed = double.tryParse(amount.text.replaceAll(',', '.'));
-                if (parsed == null || parsed <= 0) return;
-                try {
-                  await widget.repository.registerTechnicalPayment(orderId: _int(order['id']), amount: parsed, method: method, reference: reference.text);
-                  if (!dialogContext.mounted) return;
-                  Navigator.pop(dialogContext);
-                  module = 'pagos';
-                  await _load();
-                } on ApiException catch (exception) {
-                  if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(exception.message)));
-                }
-              },
-              child: const Text('Registrar'),
-            ),
-          ],
-        ),
-      ),
-    );
-    amount.dispose();
-    reference.dispose();
   }
 }
 
@@ -665,5 +694,28 @@ double? _nullableDouble(dynamic value) {
   final text = '${value ?? ''}'.trim().replaceAll(',', '.');
   return text.isEmpty ? null : double.tryParse(text);
 }
+String _money(dynamic value) => _number(value).toStringAsFixed(2);
 String _text(dynamic value, String fallback) => value == null || value.toString().trim().isEmpty ? fallback : value.toString();
 String _pretty(dynamic value) => _text(value, 'Sin estado').replaceAll('_', ' ');
+String _stateLabel(String value) => switch (value) {
+      'recibido' => 'Recibido',
+      'diagnostico' => 'En diagnóstico',
+      'esperando_aprobacion' => 'Esperando aprobación',
+      'reparacion' => 'En reparación',
+      'pruebas' => 'En pruebas',
+      'listo_entrega' => 'Listo para entregar',
+      'entregado' => 'Entregado',
+      'sin_reparacion' => 'Sin reparación',
+      _ => _pretty(value),
+    };
+IconData _stateIcon(String value) => switch (value) {
+      'recibido' => Icons.inbox_outlined,
+      'diagnostico' => Icons.search_outlined,
+      'esperando_aprobacion' => Icons.hourglass_bottom,
+      'reparacion' => Icons.build_outlined,
+      'pruebas' => Icons.science_outlined,
+      'listo_entrega' => Icons.inventory_2_outlined,
+      'entregado' => Icons.task_alt,
+      'sin_reparacion' => Icons.cancel_outlined,
+      _ => Icons.assignment_outlined,
+    };
