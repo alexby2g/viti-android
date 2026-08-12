@@ -131,6 +131,7 @@ class _ElectrofrioOrderWorkspaceState extends State<ElectrofrioOrderWorkspace> {
   Future<void> _addMaterial() async {
     List<Map<String,dynamic>> available;
     try{available=await widget.repository.list('materiales');}on ApiException catch(e){if(mounted)_notice(e.message);return;}
+    if(!mounted)return;
     final active=available.where((m)=>m['activo']!=false&&_num(m['stock'])>0).toList(growable:false);
     if(active.isEmpty){_notice('No hay materiales con stock disponible.');return;}
     var materialId=_id(active.first['id']);final quantity=TextEditingController(text:'1');
