@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/ui/viti_ui.dart';
 import '../data/viti_repository.dart';
 import 'technical_order_form.dart';
 import 'technical_order_workspace.dart';
@@ -63,6 +64,8 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
       .where((item) => enabledModuleKeys.contains(item.key) && (isTechnical || item.key != 'tecnicos'))
       .toList(growable: false);
 
+  _Module get currentModule => visibleModules.firstWhere((item) => item.key == module, orElse: () => _allModules.first);
+
   @override
   void initState() {
     super.initState();
@@ -123,25 +126,44 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
         return Scaffold(
           appBar: AppBar(
             leading: const BackButton(),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            titleSpacing: 2,
+            title: Row(
               children: [
-                Text(widget.appName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                Text(
-                  isTechnical ? 'Servicio Técnico VITI' : 'Electrofrío VITI',
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(isTechnical ? Icons.computer_outlined : Icons.apps_outlined, size: 18, color: Theme.of(context).colorScheme.primary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                      Text(
+                        isTechnical ? 'VITI App · servicio técnico' : 'VITI App · operación',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 9, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             actions: [
-              if (isTechnical)
+              if (isTechnical && desktop)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Center(
-                    child: Chip(
-                      avatar: Icon(canManage ? Icons.edit_outlined : Icons.visibility_outlined, size: 17),
-                      label: Text(widget.adminMode ? 'Administración VITI' : canManage ? 'Administración' : 'Consulta'),
-                    ),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+                  child: VitiStatusBadge(
+                    widget.adminMode ? 'Administración VITI' : canManage ? 'Administración' : 'Consulta',
+                    tone: canManage ? VitiTone.primary : VitiTone.neutral,
+                    icon: canManage ? Icons.edit_outlined : Icons.visibility_outlined,
                   ),
                 ),
               IconButton(onPressed: loading ? null : _load, tooltip: 'Actualizar', icon: const Icon(Icons.refresh)),
@@ -152,8 +174,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
           body: desktop
               ? Row(
                   children: [
-                    SizedBox(width: 245, child: _menu()),
-                    const VerticalDivider(width: 1),
+                    SizedBox(width: 252, child: _menu()),
                     Expanded(child: _content()),
                   ],
                 )
@@ -164,53 +185,145 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
   }
 
   Widget _menu({bool closeDrawer = false}) {
-    final colors = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('VITI APP', style: TextStyle(fontSize: 11, letterSpacing: 1.7, color: colors.onSurfaceVariant, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text(widget.appName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              if (isTechnical && _map(appState['empresa']).isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text(_text(_map(appState['empresa'])['nombre_comercial'], ''), style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
-              ],
-            ]),
-          ),
-          for (final item in visibleModules)
+    final company = _map(appState['empresa']);
+    return ColoredBox(
+      color: const Color(0xFF092B55),
+      child: SafeArea(
+        child: Column(
+          children: [
             Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: ListTile(
-                selected: module == item.key,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                leading: Icon(item.icon),
-                title: Text(item.label),
-                onTap: () {
-                  if (closeDrawer) Navigator.of(context).pop();
-                  _select(item.key);
-                },
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                        child: Text(isTechnical ? 'PC' : 'VT', style: const TextStyle(color: Color(0xFF092B55), fontSize: 10, fontWeight: FontWeight.w900)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('VITI APP', style: TextStyle(fontSize: 8, letterSpacing: 1.2, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: .48))),
+                            const SizedBox(height: 2),
+                            Text(widget.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isTechnical && company.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: .07), borderRadius: BorderRadius.circular(11), border: Border.all(color: Colors.white.withValues(alpha: .08))),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.business_outlined, size: 16, color: Color(0xFF9DD5FF)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('EMPRESA', style: TextStyle(fontSize: 7, letterSpacing: 1, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: .42))),
+                                const SizedBox(height: 2),
+                                Text(_text(company['nombre_comercial'], 'Empresa VITI'), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-        ],
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(10, 2, 10, 12),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 7),
+                    child: Text('OPERACIÓN', style: TextStyle(fontSize: 8, letterSpacing: 1.25, fontWeight: FontWeight.w900, color: Colors.white.withValues(alpha: .42))),
+                  ),
+                  for (final item in visibleModules)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Material(
+                        color: module == item.key ? Colors.white.withValues(alpha: .13) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(11),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(11),
+                          hoverColor: Colors.white.withValues(alpha: .06),
+                          onTap: () {
+                            if (closeDrawer) Navigator.of(context).pop();
+                            _select(item.key);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                            child: Row(
+                              children: [
+                                Icon(item.icon, size: 20, color: module == item.key ? Colors.white : const Color(0xFFB8CEE5)),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(item.label, style: TextStyle(color: module == item.key ? Colors.white : const Color(0xFFD8E6F4), fontSize: 13, fontWeight: module == item.key ? FontWeight.w800 : FontWeight.w600))),
+                                if (module == item.key) Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF75B8FF), shape: BoxShape.circle)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Container(height: 1, color: Colors.white.withValues(alpha: .08)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 11, 12, 13),
+              child: Row(
+                children: [
+                  Icon(canManage ? Icons.admin_panel_settings_outlined : Icons.visibility_outlined, color: const Color(0xFF9DD5FF), size: 17),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(canManage ? 'Permisos de gestión activos' : 'Acceso de consulta', style: TextStyle(color: Colors.white.withValues(alpha: .55), fontSize: 10, fontWeight: FontWeight.w700))),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _content() {
-    if (loading) return const Center(child: CircularProgressIndicator());
+    if (loading) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 12),
+            Text('Cargando ${currentModule.label.toLowerCase()}…', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      );
+    }
     if (error != null) {
       return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off, size: 42),
-          const SizedBox(height: 10),
-          Text(error!, textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          FilledButton.icon(onPressed: _initialize, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
-        ]),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: VitiEmptyState(
+            title: 'No se pudo cargar ${currentModule.label.toLowerCase()}',
+            message: error!,
+            icon: Icons.cloud_off,
+            action: FilledButton.icon(onPressed: _initialize, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+          ),
+        ),
       );
     }
     if (module == 'inicio') return _summary(_map(data));
@@ -219,67 +332,101 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
 
   Widget _summary(Map<String, dynamic> summary) {
     final agenda = _list(summary['agenda_hoy']);
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _header(
-          'Inicio',
-          'Operación real de ${widget.appName}.',
-          actions: [
-            if (canManage) FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add), label: const Text('Nueva orden')),
-            if (canManage) OutlinedButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt_1), label: const Text('Nuevo cliente')),
-          ],
-        ),
-        const SizedBox(height: 18),
-        Wrap(spacing: 12, runSpacing: 12, children: [
-          _stat('Clientes', summary['clientes'], Icons.people_outline, () => _select('clientes')),
-          _stat('Computadoras', summary['equipos'], Icons.computer_outlined, () => _select('equipos')),
-          if (isTechnical && enabledModuleKeys.contains('tecnicos')) _stat('Técnicos', summary['tecnicos'], Icons.engineering_outlined, () => _select('tecnicos')),
-          _stat('Órdenes abiertas', summary['ordenes_abiertas'], Icons.assignment_outlined, () => _select('ordenes')),
-          if (summary.containsKey('esperando_aprobacion')) _stat('Esperando aprobación', summary['esperando_aprobacion'], Icons.hourglass_bottom, () => _select('ordenes')),
-          if (summary.containsKey('listos_entrega')) _stat('Listos para entregar', summary['listos_entrega'], Icons.inventory_2_outlined, () => _select('ordenes')),
-          if (hasPayments && summary.containsKey('por_cobrar')) _stat('Por cobrar', '${summary['por_cobrar'] ?? 0} Bs', Icons.payments_outlined, () => _select('pagos')),
-        ]),
-        const SizedBox(height: 20),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Agenda de hoy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 10),
-              if (agenda.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  child: Text('No hay trabajos programados para hoy.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ),
-              for (final row in agenda) _orderTile(row),
-            ]),
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(26, 24, 26, 38),
+        children: [
+          VitiPageHeader(
+            eyebrow: 'VITI APP · ${widget.appName}',
+            title: 'Centro de servicio',
+            subtitle: isTechnical
+                ? 'Clientes, computadoras, técnicos, órdenes, cobros y garantías conectados en una sola operación.'
+                : 'Operación de ${widget.appName} integrada dentro de VITI.',
+            actions: [
+              if (canManage) FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add_task), label: const Text('Nueva orden')),
+              if (canManage) OutlinedButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt_1), label: const Text('Nuevo cliente')),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              VitiMetricTile(label: 'Clientes', value: '${summary['clientes'] ?? 0}', icon: Icons.people_outline, tone: VitiTone.info, onTap: () => _select('clientes')),
+              VitiMetricTile(label: 'Computadoras', value: '${summary['equipos'] ?? 0}', icon: Icons.computer_outlined, tone: VitiTone.primary, onTap: () => _select('equipos')),
+              if (isTechnical && enabledModuleKeys.contains('tecnicos')) VitiMetricTile(label: 'Técnicos', value: '${summary['tecnicos'] ?? 0}', icon: Icons.engineering_outlined, tone: VitiTone.info, onTap: () => _select('tecnicos')),
+              VitiMetricTile(label: 'Órdenes abiertas', value: '${summary['ordenes_abiertas'] ?? 0}', icon: Icons.assignment_outlined, tone: VitiTone.warning, onTap: () => _select('ordenes')),
+              if (summary.containsKey('esperando_aprobacion')) VitiMetricTile(label: 'Esperando aprobación', value: '${summary['esperando_aprobacion'] ?? 0}', icon: Icons.hourglass_bottom, tone: VitiTone.warning, onTap: () => _select('ordenes')),
+              if (summary.containsKey('listos_entrega')) VitiMetricTile(label: 'Listos para entregar', value: '${summary['listos_entrega'] ?? 0}', icon: Icons.inventory_2_outlined, tone: VitiTone.success, onTap: () => _select('ordenes')),
+              if (hasPayments && summary.containsKey('por_cobrar')) VitiMetricTile(label: 'Por cobrar', value: '${_money(summary['por_cobrar'])} Bs', icon: Icons.payments_outlined, tone: VitiTone.warning, onTap: () => _select('pagos')),
+            ],
+          ),
+          const SizedBox(height: 20),
+          VitiPanel(
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 17, 12, 14),
+                  child: Row(
+                    children: [
+                      Container(width: 38, height: 38, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(11)), child: Icon(Icons.today_outlined, size: 19, color: Theme.of(context).colorScheme.primary)),
+                      const SizedBox(width: 10),
+                      const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Agenda de hoy', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), Text('Trabajos y servicios programados', style: TextStyle(fontSize: 11))])),
+                      if (agenda.isNotEmpty) VitiStatusBadge('${agenda.length} programados', tone: VitiTone.info),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: agenda.isEmpty
+                      ? const VitiEmptyState(title: 'Agenda despejada', message: 'No hay trabajos programados para hoy.', icon: Icons.event_available_outlined)
+                      : Column(children: [for (final row in agenda) _orderTile(row)]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _records(List<Map<String, dynamic>> items) {
-    final current = visibleModules.firstWhere((item) => item.key == module, orElse: () => _allModules.first);
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _header(
-          current.label,
-          '${items.length} registro${items.length == 1 ? '' : 's'} cargados.',
-          actions: [
-            if (canManage && module == 'clientes') FilledButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt_1), label: const Text('Nuevo cliente')),
-            if (canManage && module == 'equipos') FilledButton.icon(onPressed: () => _saveEquipment(), icon: const Icon(Icons.add_to_queue), label: const Text('Nueva computadora')),
-            if (canManage && module == 'tecnicos') FilledButton.icon(onPressed: () => _saveTechnician(), icon: const Icon(Icons.person_add_alt), label: const Text('Nuevo técnico')),
-            if (canManage && module == 'ordenes') FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add_task), label: const Text('Nueva orden')),
-          ],
-        ),
-        const SizedBox(height: 18),
-        if (items.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(24), child: Text('No hay registros para mostrar.'))),
-        for (final row in items)
-          if (const {'ordenes', 'garantias', 'historial'}.contains(module)) _orderTile(row) else _recordTile(row),
-      ],
+    final current = currentModule;
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(26, 24, 26, 38),
+        children: [
+          VitiPageHeader(
+            eyebrow: 'VITI APP · ${widget.appName}',
+            title: current.label,
+            subtitle: '${items.length} registro${items.length == 1 ? '' : 's'} disponibles en este módulo.',
+            actions: [
+              if (canManage && module == 'clientes') FilledButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt_1), label: const Text('Nuevo cliente')),
+              if (canManage && module == 'equipos') FilledButton.icon(onPressed: () => _saveEquipment(), icon: const Icon(Icons.add_to_queue), label: const Text('Nueva computadora')),
+              if (canManage && module == 'tecnicos') FilledButton.icon(onPressed: () => _saveTechnician(), icon: const Icon(Icons.person_add_alt), label: const Text('Nuevo técnico')),
+              if (canManage && module == 'ordenes') FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add_task), label: const Text('Nueva orden')),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (items.isEmpty)
+            VitiEmptyState(title: 'Sin ${current.label.toLowerCase()}', message: 'Los registros aparecerán aquí cuando exista información disponible.', icon: current.icon)
+          else
+            VitiPanel(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                children: [
+                  for (final row in items)
+                    if (const {'ordenes', 'garantias', 'historial'}.contains(module)) _orderTile(row) else _recordTile(row),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -288,7 +435,7 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
       'clientes' => _text(row['nombre'], 'Cliente'),
       'equipos' => '${_text(row['tipo'], 'Equipo')} ${_text(row['marca'], '')} ${_text(row['modelo'], '')}'.trim(),
       'tecnicos' => _text(row['nombre'], 'Técnico'),
-      'pagos' => '${row['monto'] ?? 0} Bs · ${_pretty(row['metodo'])}',
+      'pagos' => '${_money(row['monto'])} Bs · ${_pretty(row['metodo'])}',
       _ => _text(row['nombre'], _text(row['codigo'], 'Registro')),
     };
     final subtitle = switch (module) {
@@ -298,94 +445,36 @@ class _BusinessAppScreenState extends State<BusinessAppScreen> {
       'pagos' => '${_text(row['orden_codigo'], _text(row['codigo'], 'Pago'))} · ${_text(row['cliente_nombre'], '')}',
       _ => _pretty(row['estado']),
     };
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-        leading: CircleAvatar(child: Icon(currentModuleIcon)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _showRecord(row),
-      ),
+    final inactive = row['activo'] == false;
+    final status = '${row['estado'] ?? ''}';
+    return VitiEntityRow(
+      title: title,
+      subtitle: subtitle,
+      icon: currentModule.icon,
+      badges: [
+        if (inactive) const VitiStatusBadge('Inactivo', tone: VitiTone.neutral),
+        if (!inactive && const {'clientes', 'equipos', 'tecnicos'}.contains(module)) const VitiStatusBadge('Activo', tone: VitiTone.success),
+        if (status.isNotEmpty && !const {'clientes', 'equipos', 'tecnicos', 'pagos'}.contains(module)) VitiStatusBadge(_pretty(status), tone: vitiToneForStatus(status)),
+      ],
+      onTap: () => _showRecord(row),
     );
   }
-
-  IconData get currentModuleIcon => _allModules.firstWhere((item) => item.key == module, orElse: () => _allModules.first).icon;
 
   Widget _orderTile(Map<String, dynamic> row) {
-    final colors = Theme.of(context).colorScheme;
     final state = '${row['estado'] ?? 'recibido'}';
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _showOrder(row),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          child: Row(
-            children: [
-              CircleAvatar(child: Icon(_stateIcon(state))),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 3),
-                    Text('${_stateLabel(state)} · ${_text(row['equipo_tipo'], 'Sin equipo')}${row['tecnico_nombre'] != null ? ' · ${row['tecnico_nombre']}' : ''}', style: TextStyle(color: colors.onSurfaceVariant)),
-                    if (row['saldo'] != null && hasPayments) ...[
-                      const SizedBox(height: 3),
-                      Text('Total ${_money(row['total'])} Bs · Pagado ${_money(row['pagado'])} Bs · Saldo ${_money(row['saldo'])} Bs', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
-                    ],
-                  ],
-                ),
-              ),
-              Chip(label: Text(_stateLabel(state))),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
+    final saldo = _number(row['saldo']);
+    return VitiEntityRow(
+      title: '${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}',
+      subtitle: '${_stateLabel(state)} · ${_text(row['equipo_tipo'], 'Sin equipo')}${row['tecnico_nombre'] != null ? ' · ${row['tecnico_nombre']}' : ''}',
+      icon: _stateIcon(state),
+      badges: [
+        VitiStatusBadge(_stateLabel(state), tone: _stateTone(state)),
+        if (hasPayments && saldo > 0) VitiStatusBadge('Saldo ${_money(saldo)} Bs', tone: VitiTone.warning, icon: Icons.payments_outlined),
+        if (hasPayments && saldo <= 0 && _number(row['total']) > 0) const VitiStatusBadge('Pagado', tone: VitiTone.success, icon: Icons.check_circle_outline),
+      ],
+      onTap: () => _showOrder(row),
     );
   }
-
-  Widget _header(String title, String subtitle, {List<Widget> actions = const []}) => Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          ]),
-          if (actions.isNotEmpty) Wrap(spacing: 8, runSpacing: 8, children: actions),
-        ],
-      );
-
-  Widget _stat(String label, dynamic value, IconData icon, VoidCallback? onTap) => SizedBox(
-        width: 220,
-        child: Card(
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Row(children: [
-                CircleAvatar(child: Icon(icon)),
-                const SizedBox(width: 13),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${value ?? 0}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-                  Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ])),
-              ]),
-            ),
-          ),
-        ),
-      );
 
   Future<void> _showRecord(Map<String, dynamic> row) async {
     await showDialog<void>(
@@ -718,4 +807,15 @@ IconData _stateIcon(String value) => switch (value) {
       'entregado' => Icons.task_alt,
       'sin_reparacion' => Icons.cancel_outlined,
       _ => Icons.assignment_outlined,
+    };
+VitiTone _stateTone(String value) => switch (value) {
+      'recibido' => VitiTone.info,
+      'diagnostico' => VitiTone.warning,
+      'esperando_aprobacion' => VitiTone.warning,
+      'reparacion' => VitiTone.primary,
+      'pruebas' => VitiTone.primary,
+      'listo_entrega' => VitiTone.success,
+      'entregado' => VitiTone.success,
+      'sin_reparacion' => VitiTone.danger,
+      _ => VitiTone.neutral,
     };
