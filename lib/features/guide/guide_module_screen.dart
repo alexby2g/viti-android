@@ -128,7 +128,7 @@ class _GuideModuleScreenState extends State<GuideModuleScreen> {
           VitiPanel(
             selected: true,
             tone: VitiTone.info,
-            child: Row(children: [Icon(client ? Icons.explore_outlined : support ? Icons.support_agent : Icons.route_outlined, color: vitiToneColor(context, VitiTone.info)), const SizedBox(width: 12), Expanded(child: Text(client ? 'El paso resaltado representa la etapa más cercana a tu situación actual.' : support ? 'El flujo mantiene tu trabajo aislado de la administración global.' : 'El paso resaltado marca el foco operativo que VITI detecta ahora.', style: const TextStyle(fontWeight: FontWeight.w750)))]),
+            child: Row(children: [Icon(client ? Icons.explore_outlined : support ? Icons.support_agent : Icons.route_outlined, color: vitiToneColor(context, VitiTone.info)), const SizedBox(width: 12), Expanded(child: Text(client ? 'El paso resaltado representa la etapa más cercana a tu situación actual.' : support ? 'El flujo mantiene tu trabajo aislado de la administración global.' : 'El paso resaltado marca el foco operativo que VITI detecta ahora.', style: const TextStyle(fontWeight: FontWeight.w700)))]),
           ),
           const SizedBox(height: 16),
           LayoutBuilder(
