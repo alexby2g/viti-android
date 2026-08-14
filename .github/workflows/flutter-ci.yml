@@ -2,6 +2,13 @@ name: Flutter CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: flutter-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
@@ -32,6 +39,13 @@ jobs:
       - run: flutter test
       - name: Compile Android smoke APK
         run: flutter build apk --debug --dart-define=VITI_API_URL=https://viti-core-api-alexby2g.onrender.com/api/v1
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: viti-android-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
 
   windows:
     runs-on: windows-latest
@@ -46,3 +60,10 @@ jobs:
       - run: flutter pub get
       - name: Compile Windows smoke build
         run: flutter build windows --debug --dart-define=VITI_API_URL=https://viti-core-api-alexby2g.onrender.com/api/v1
+      - name: Upload Windows debug build
+        uses: actions/upload-artifact@v4
+        with:
+          name: viti-windows-debug
+          path: build/windows/x64/runner/Debug/
+          if-no-files-found: error
+          retention-days: 14
