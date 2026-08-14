@@ -6,10 +6,16 @@ Future<Map<String, dynamic>?> showDiagnosisProposalForm(
   required Map<String, dynamic> order,
   required bool showFinancial,
 }) async {
-  final diagnosis = TextEditingController(text: '${order['diagnostico'] ?? ''}');
+  final diagnosis = TextEditingController(
+    text: '${order['diagnostico'] ?? ''}',
+  );
   final proposal = TextEditingController(text: '${order['propuesta'] ?? ''}');
-  final cost = TextEditingController(text: order['costo_servicio'] == null ? '' : '${order['costo_servicio']}');
-  final discount = TextEditingController(text: order['descuento'] == null ? '0' : '${order['descuento']}');
+  final cost = TextEditingController(
+    text: order['costo_servicio'] == null ? '' : '${order['costo_servicio']}',
+  );
+  final discount = TextEditingController(
+    text: order['descuento'] == null ? '0' : '${order['descuento']}',
+  );
 
   final result = await showDialog<Map<String, dynamic>>(
     context: context,
@@ -27,7 +33,8 @@ Future<Map<String, dynamic>?> showDiagnosisProposalForm(
                 maxLines: 7,
                 decoration: const InputDecoration(
                   labelText: 'Diagnóstico técnico *',
-                  hintText: 'Describe la falla encontrada, pruebas realizadas y causa probable.',
+                  hintText:
+                      'Describe la falla encontrada, pruebas realizadas y causa probable.',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -38,7 +45,8 @@ Future<Map<String, dynamic>?> showDiagnosisProposalForm(
                 maxLines: 7,
                 decoration: const InputDecoration(
                   labelText: 'Propuesta al cliente *',
-                  hintText: 'Explica la solución, alcance del trabajo y qué se realizará si autoriza.',
+                  hintText:
+                      'Explica la solución, alcance del trabajo y qué se realizará si autoriza.',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -50,7 +58,11 @@ Future<Map<String, dynamic>?> showDiagnosisProposalForm(
                       child: TextField(
                         controller: cost,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Costo del servicio', suffixText: 'Bs', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'Costo del servicio',
+                          suffixText: 'Bs',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -58,7 +70,11 @@ Future<Map<String, dynamic>?> showDiagnosisProposalForm(
                       child: TextField(
                         controller: discount,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Descuento', suffixText: 'Bs', border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          labelText: 'Descuento',
+                          suffixText: 'Bs',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ),
                   ],
@@ -69,11 +85,18 @@ Future<Map<String, dynamic>?> showDiagnosisProposalForm(
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cancelar'),
+        ),
         FilledButton.icon(
           onPressed: () {
             if (diagnosis.text.trim().isEmpty || proposal.text.trim().isEmpty) {
-              ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('Completa diagnóstico y propuesta.')));
+              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                const SnackBar(
+                  content: Text('Completa diagnóstico y propuesta.'),
+                ),
+              );
               return;
             }
             Navigator.pop(dialogContext, <String, dynamic>{
@@ -97,10 +120,17 @@ Future<Map<String, dynamic>?> showDiagnosisProposalForm(
   return result;
 }
 
-Future<Map<String, dynamic>?> showClientDecisionForm(BuildContext context, {required Map<String, dynamic> order}) async {
+Future<Map<String, dynamic>?> showClientDecisionForm(
+  BuildContext context, {
+  required Map<String, dynamic> order,
+}) async {
   var decision = '${order['decision_cliente'] ?? 'pendiente'}';
-  if (!const {'aceptado', 'rechazado'}.contains(decision)) decision = 'aceptado';
-  final reason = TextEditingController(text: '${order['motivo_rechazo'] ?? ''}');
+  if (!const {'aceptado', 'rechazado'}.contains(decision)) {
+    decision = 'aceptado';
+  }
+  final reason = TextEditingController(
+    text: '${order['motivo_rechazo'] ?? ''}',
+  );
 
   final result = await showDialog<Map<String, dynamic>>(
     context: context,
@@ -114,11 +144,20 @@ Future<Map<String, dynamic>?> showClientDecisionForm(BuildContext context, {requ
             children: [
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'aceptado', icon: Icon(Icons.check_circle_outline), label: Text('Acepta')),
-                  ButtonSegment(value: 'rechazado', icon: Icon(Icons.cancel_outlined), label: Text('Rechaza')),
+                  ButtonSegment(
+                    value: 'aceptado',
+                    icon: Icon(Icons.check_circle_outline),
+                    label: Text('Acepta'),
+                  ),
+                  ButtonSegment(
+                    value: 'rechazado',
+                    icon: Icon(Icons.cancel_outlined),
+                    label: Text('Rechaza'),
+                  ),
                 ],
                 selected: <String>{decision},
-                onSelectionChanged: (value) => setDialogState(() => decision = value.first),
+                onSelectionChanged: (value) =>
+                    setDialogState(() => decision = value.first),
               ),
               if (decision == 'rechazado') ...[
                 const SizedBox(height: 14),
@@ -126,21 +165,34 @@ Future<Map<String, dynamic>?> showClientDecisionForm(BuildContext context, {requ
                   controller: reason,
                   minLines: 3,
                   maxLines: 5,
-                  decoration: const InputDecoration(labelText: 'Motivo del rechazo *', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo del rechazo *',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ],
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () {
               if (decision == 'rechazado' && reason.text.trim().isEmpty) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('Registra el motivo del rechazo.')));
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Registra el motivo del rechazo.'),
+                  ),
+                );
                 return;
               }
-              Navigator.pop(dialogContext, <String, dynamic>{'decision': decision, 'motivo_rechazo': reason.text.trim()});
+              Navigator.pop(dialogContext, <String, dynamic>{
+                'decision': decision,
+                'motivo_rechazo': reason.text.trim(),
+              });
             },
             child: const Text('Registrar decisión'),
           ),
@@ -152,11 +204,22 @@ Future<Map<String, dynamic>?> showClientDecisionForm(BuildContext context, {requ
   return result;
 }
 
-Future<Map<String, dynamic>?> showRepairCompletionForm(BuildContext context, {required Map<String, dynamic> order}) async {
-  final work = TextEditingController(text: '${order['trabajo_realizado'] ?? ''}');
-  final recommendations = TextEditingController(text: '${order['recomendaciones'] ?? ''}');
-  final warrantyDays = TextEditingController(text: '${order['garantia_dias'] ?? 0}');
-  final warrantyTerms = TextEditingController(text: '${order['condiciones_garantia'] ?? ''}');
+Future<Map<String, dynamic>?> showRepairCompletionForm(
+  BuildContext context, {
+  required Map<String, dynamic> order,
+}) async {
+  final work = TextEditingController(
+    text: '${order['trabajo_realizado'] ?? ''}',
+  );
+  final recommendations = TextEditingController(
+    text: '${order['recomendaciones'] ?? ''}',
+  );
+  final warrantyDays = TextEditingController(
+    text: '${order['garantia_dias'] ?? 0}',
+  );
+  final warrantyTerms = TextEditingController(
+    text: '${order['condiciones_garantia'] ?? ''}',
+  );
 
   final result = await showDialog<Map<String, dynamic>>(
     context: context,
@@ -172,38 +235,56 @@ Future<Map<String, dynamic>?> showRepairCompletionForm(BuildContext context, {re
                 controller: work,
                 minLines: 4,
                 maxLines: 7,
-                decoration: const InputDecoration(labelText: 'Trabajo realizado *', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Trabajo realizado *',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: recommendations,
                 minLines: 3,
                 maxLines: 5,
-                decoration: const InputDecoration(labelText: 'Recomendaciones', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Recomendaciones',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: warrantyDays,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Días de garantía', suffixText: 'días', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Días de garantía',
+                  suffixText: 'días',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: warrantyTerms,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Condiciones de garantía', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Condiciones de garantía',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cancelar'),
+        ),
         FilledButton.icon(
           onPressed: () {
             if (work.text.trim().isEmpty) {
-              ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('Describe el trabajo realizado.')));
+              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                const SnackBar(content: Text('Describe el trabajo realizado.')),
+              );
               return;
             }
             Navigator.pop(dialogContext, <String, dynamic>{
@@ -226,17 +307,26 @@ Future<Map<String, dynamic>?> showRepairCompletionForm(BuildContext context, {re
   return result;
 }
 
-Future<Map<String, dynamic>?> showEvidenceForm(BuildContext context, {required String defaultStage}) async {
-  final picked = await FilePicker.pickFiles(
+Future<Map<String, dynamic>?> showEvidenceForm(
+  BuildContext context, {
+  required String defaultStage,
+}) async {
+  final file = await FilePicker.pickFile(
     type: FileType.custom,
     allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
-    allowMultiple: false,
-    withData: false,
   );
-  if (picked == null || picked.files.isEmpty || picked.files.first.path == null) return null;
-
-  final file = picked.files.first;
-  var stage = const {'recepcion', 'diagnostico', 'reparacion', 'pruebas', 'entrega'}.contains(defaultStage) ? defaultStage : 'recepcion';
+  if (!context.mounted) return null;
+  if (file == null || file.path == null) return null;
+  var stage =
+      const {
+        'recepcion',
+        'diagnostico',
+        'reparacion',
+        'pruebas',
+        'entrega',
+      }.contains(defaultStage)
+      ? defaultStage
+      : 'recepcion';
   final description = TextEditingController();
 
   final result = await showDialog<Map<String, dynamic>>(
@@ -258,28 +348,47 @@ Future<Map<String, dynamic>?> showEvidenceForm(BuildContext context, {required S
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: stage,
-                decoration: const InputDecoration(labelText: 'Etapa', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Etapa',
+                  border: OutlineInputBorder(),
+                ),
                 items: const [
-                  DropdownMenuItem(value: 'recepcion', child: Text('Recepción')),
-                  DropdownMenuItem(value: 'diagnostico', child: Text('Diagnóstico')),
-                  DropdownMenuItem(value: 'reparacion', child: Text('Reparación')),
+                  DropdownMenuItem(
+                    value: 'recepcion',
+                    child: Text('Recepción'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'diagnostico',
+                    child: Text('Diagnóstico'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'reparacion',
+                    child: Text('Reparación'),
+                  ),
                   DropdownMenuItem(value: 'pruebas', child: Text('Pruebas')),
                   DropdownMenuItem(value: 'entrega', child: Text('Entrega')),
                 ],
-                onChanged: (value) => setDialogState(() => stage = value ?? stage),
+                onChanged: (value) =>
+                    setDialogState(() => stage = value ?? stage),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: description,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Descripción',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
           FilledButton.icon(
             onPressed: () => Navigator.pop(dialogContext, <String, dynamic>{
               'ruta': file.path!,
