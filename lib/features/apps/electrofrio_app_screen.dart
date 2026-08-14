@@ -45,20 +45,30 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
 
   bool get canManage =>
       widget.adminMode ||
-      const {'superadmin', 'administrador_viti', 'propietario', 'administrador'}.contains('${state['rol']}');
+      const {
+        'superadmin',
+        'administrador_viti',
+        'propietario',
+        'administrador',
+      }.contains('${state['rol']}');
 
   bool get hasInventory => allowed == null || allowed!.contains('inventario');
   bool get hasPayments => allowed == null || allowed!.contains('pagos');
   bool get hasWarranty => allowed == null || allowed!.contains('garantias');
 
   List<String> get visible => modules.keys
-      .where((key) => key == 'inicio' || allowed == null || allowed!.contains(key))
+      .where(
+        (key) => key == 'inicio' || allowed == null || allowed!.contains(key),
+      )
       .toList(growable: false);
 
   @override
   void initState() {
     super.initState();
-    repo = ElectrofrioRepository(adminMode: widget.adminMode, companyId: widget.companyId);
+    repo = ElectrofrioRepository(
+      adminMode: widget.adminMode,
+      companyId: widget.companyId,
+    );
     _initialize();
   }
 
@@ -70,7 +80,9 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
     try {
       state = await repo.state();
       final summary = await repo.summary();
-      final plan = _map(widget.adminMode ? summary['plan'] : _map(state['plan']));
+      final plan = _map(
+        widget.adminMode ? summary['plan'] : _map(state['plan']),
+      );
       final raw = plan['modulos'];
       if (raw is List && raw.isNotEmpty) {
         allowed = raw.map((item) => '$item').toSet();
@@ -93,7 +105,9 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
       error = null;
     });
     try {
-      data = module == 'inicio' ? await repo.summary() : await repo.list(_resource(module));
+      data = module == 'inicio'
+          ? await repo.summary()
+          : await repo.list(_resource(module));
     } on ApiException catch (exception) {
       error = exception.message;
     } catch (_) {
@@ -120,20 +134,39 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.appName, style: const TextStyle(fontWeight: FontWeight.w900)),
+                Text(
+                  widget.appName,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
                 Text(
                   'Electrofrío · operación técnica',
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
             actions: [
               Chip(
-                avatar: Icon(canManage ? Icons.edit_outlined : Icons.visibility_outlined, size: 17),
-                label: Text(widget.adminMode ? 'Administración VITI' : canManage ? 'Administración' : 'Consulta'),
+                avatar: Icon(
+                  canManage ? Icons.edit_outlined : Icons.visibility_outlined,
+                  size: 17,
+                ),
+                label: Text(
+                  widget.adminMode
+                      ? 'Administración VITI'
+                      : canManage
+                      ? 'Administración'
+                      : 'Consulta',
+                ),
               ),
               const SizedBox(width: 6),
-              IconButton(onPressed: loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Actualizar'),
+              IconButton(
+                onPressed: loading ? null : _load,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Actualizar',
+              ),
               const SizedBox(width: 8),
             ],
           ),
@@ -172,7 +205,13 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(widget.appName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                Text(
+                  widget.appName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ],
             ),
           ),
@@ -181,7 +220,9 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
               padding: const EdgeInsets.only(bottom: 3),
               child: ListTile(
                 selected: module == key,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 leading: Icon(modules[key]!.icon),
                 title: Text(modules[key]!.label),
                 onTap: () {
@@ -206,7 +247,11 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
             const SizedBox(height: 10),
             Text(error!),
             const SizedBox(height: 12),
-            FilledButton.icon(onPressed: _initialize, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+            FilledButton.icon(
+              onPressed: _initialize,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
           ],
         ),
       );
@@ -224,9 +269,17 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
           'Citas, órdenes, cobros e inventario en una sola operación.',
           actions: [
             if (canManage)
-              FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add), label: const Text('Nueva orden')),
+              FilledButton.icon(
+                onPressed: () => _saveOrder(),
+                icon: const Icon(Icons.add),
+                label: const Text('Nueva orden'),
+              ),
             if (canManage)
-              OutlinedButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt_1), label: const Text('Nuevo cliente')),
+              OutlinedButton.icon(
+                onPressed: () => _saveClient(),
+                icon: const Icon(Icons.person_add_alt_1),
+                label: const Text('Nuevo cliente'),
+              ),
           ],
         ),
         const SizedBox(height: 18),
@@ -234,16 +287,51 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _stat('Clientes', summary['clientes'], Icons.people_outline, () => _select('clientes')),
-            _stat('Equipos', summary['equipos'], Icons.ac_unit, () => _select('equipos')),
-            _stat('Citas hoy', summary['citas_hoy'], Icons.event_outlined, () => _select('ordenes')),
-            _stat('Órdenes abiertas', summary['ordenes_abiertas'], Icons.assignment_outlined, () => _select('ordenes')),
+            _stat(
+              'Clientes',
+              summary['clientes'],
+              Icons.people_outline,
+              () => _select('clientes'),
+            ),
+            _stat(
+              'Equipos',
+              summary['equipos'],
+              Icons.ac_unit,
+              () => _select('equipos'),
+            ),
+            _stat(
+              'Citas hoy',
+              summary['citas_hoy'],
+              Icons.event_outlined,
+              () => _select('ordenes'),
+            ),
+            _stat(
+              'Órdenes abiertas',
+              summary['ordenes_abiertas'],
+              Icons.assignment_outlined,
+              () => _select('ordenes'),
+            ),
             if (hasPayments)
-              _stat('Por cobrar', '${_money(summary['por_cobrar'])} Bs', Icons.payments_outlined, () => _select('pagos')),
+              _stat(
+                'Por cobrar',
+                '${_money(summary['por_cobrar'])} Bs',
+                Icons.payments_outlined,
+                () => _select('pagos'),
+              ),
             if (hasWarranty)
-              _stat('Garantías vigentes', summary['garantias_vigentes'], Icons.verified_outlined, () => _select('garantias')),
+              _stat(
+                'Garantías vigentes',
+                summary['garantias_vigentes'],
+                Icons.verified_outlined,
+                () => _select('garantias'),
+              ),
             if (hasInventory)
-              _stat('Stock bajo', summary['stock_bajo'], Icons.warning_amber_outlined, () => _select('inventario')),
+              _stat(
+                'Stock bajo',
+                summary['stock_bajo'],
+                Icons.warning_amber_outlined,
+                () => _select('inventario'),
+              ),
           ],
         ),
         const SizedBox(height: 20),
@@ -253,10 +341,18 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Agenda de hoy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                const Text(
+                  'Agenda de hoy',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 10),
                 if (agenda.isEmpty)
-                  Text('No hay visitas programadas para hoy.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text(
+                    'No hay visitas programadas para hoy.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 for (final row in agenda) _orderTile(row),
               ],
             ),
@@ -275,22 +371,50 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
           '${items.length} registros cargados.',
           actions: [
             if (canManage && module == 'clientes')
-              FilledButton.icon(onPressed: () => _saveClient(), icon: const Icon(Icons.person_add_alt), label: const Text('Nuevo cliente')),
+              FilledButton.icon(
+                onPressed: () => _saveClient(),
+                icon: const Icon(Icons.person_add_alt),
+                label: const Text('Nuevo cliente'),
+              ),
             if (canManage && module == 'equipos')
-              FilledButton.icon(onPressed: () => _saveEquipment(), icon: const Icon(Icons.add), label: const Text('Nuevo equipo')),
+              FilledButton.icon(
+                onPressed: () => _saveEquipment(),
+                icon: const Icon(Icons.add),
+                label: const Text('Nuevo equipo'),
+              ),
             if (canManage && module == 'tecnicos')
-              FilledButton.icon(onPressed: () => _saveTechnician(), icon: const Icon(Icons.person_add), label: const Text('Nuevo técnico')),
+              FilledButton.icon(
+                onPressed: () => _saveTechnician(),
+                icon: const Icon(Icons.person_add),
+                label: const Text('Nuevo técnico'),
+              ),
             if (canManage && module == 'inventario')
-              FilledButton.icon(onPressed: () => _saveMaterial(), icon: const Icon(Icons.add_box_outlined), label: const Text('Nuevo material')),
+              FilledButton.icon(
+                onPressed: () => _saveMaterial(),
+                icon: const Icon(Icons.add_box_outlined),
+                label: const Text('Nuevo material'),
+              ),
             if (canManage && module == 'ordenes')
-              FilledButton.icon(onPressed: () => _saveOrder(), icon: const Icon(Icons.add_task), label: const Text('Nueva orden')),
+              FilledButton.icon(
+                onPressed: () => _saveOrder(),
+                icon: const Icon(Icons.add_task),
+                label: const Text('Nueva orden'),
+              ),
           ],
         ),
         const SizedBox(height: 18),
         if (items.isEmpty)
-          const Card(child: Padding(padding: EdgeInsets.all(24), child: Text('No hay registros para mostrar.'))),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('No hay registros para mostrar.'),
+            ),
+          ),
         for (final row in items)
-          if (const {'ordenes', 'garantias', 'historial'}.contains(module)) _orderTile(row) else _recordTile(row),
+          if (const {'ordenes', 'garantias', 'historial'}.contains(module))
+            _orderTile(row)
+          else
+            _recordTile(row),
       ],
     );
   }
@@ -298,18 +422,25 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
   Widget _recordTile(Map<String, dynamic> row) {
     final title = switch (module) {
       'clientes' => _text(row['nombre'], 'Cliente'),
-      'equipos' => '${_text(row['tipo'], 'Equipo')} ${_text(row['marca'], '')} ${_text(row['modelo'], '')}'.trim(),
+      'equipos' =>
+        '${_text(row['tipo'], 'Equipo')} ${_text(row['marca'], '')} ${_text(row['modelo'], '')}'
+            .trim(),
       'tecnicos' => _text(row['nombre'], 'Técnico'),
       'inventario' => _text(row['nombre'], 'Material'),
       'pagos' => '${_money(row['monto'])} Bs · ${_pretty(row['metodo'])}',
       _ => _text(row['nombre'], 'Registro'),
     };
     final subtitle = switch (module) {
-      'clientes' => '${_text(row['telefono'], 'Sin teléfono')} · ${row['activo'] == false ? 'Inactivo' : 'Activo'}',
-      'equipos' => '${_text(row['cliente_nombre'], 'Sin cliente')} · ${_text(row['capacidad'], 'Sin capacidad')} · ${row['activo'] == false ? 'Inactivo' : 'Activo'}',
-      'tecnicos' => '${_text(row['especialidad'], 'Sin especialidad')} · ${row['activo'] == false ? 'Inactivo' : 'Activo'}',
-      'inventario' => 'Stock ${row['stock'] ?? 0} ${row['unidad'] ?? ''} · mínimo ${row['stock_minimo'] ?? 0} · ${_money(row['costo_unitario'])} Bs',
-      'pagos' => '${_text(row['orden_codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}',
+      'clientes' =>
+        '${_text(row['telefono'], 'Sin teléfono')} · ${row['activo'] == false ? 'Inactivo' : 'Activo'}',
+      'equipos' =>
+        '${_text(row['cliente_nombre'], 'Sin cliente')} · ${_text(row['capacidad'], 'Sin capacidad')} · ${row['activo'] == false ? 'Inactivo' : 'Activo'}',
+      'tecnicos' =>
+        '${_text(row['especialidad'], 'Sin especialidad')} · ${row['activo'] == false ? 'Inactivo' : 'Activo'}',
+      'inventario' =>
+        'Stock ${row['stock'] ?? 0} ${row['unidad'] ?? ''} · mínimo ${row['stock_minimo'] ?? 0} · ${_money(row['costo_unitario'])} Bs',
+      'pagos' =>
+        '${_text(row['orden_codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}',
       _ => '',
     };
     return Card(
@@ -343,10 +474,22 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    Text('${_stage(stage)} · ${_text(row['equipo_tipo'], 'Sin equipo')} · ${_text(row['tecnico_nombre'], 'Sin técnico')}', style: TextStyle(color: colors.onSurfaceVariant)),
+                    Text(
+                      '${_text(row['codigo'], 'Orden')} · ${_text(row['cliente_nombre'], 'Cliente')}',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      '${_stage(stage)} · ${_text(row['equipo_tipo'], 'Sin equipo')} · ${_text(row['tecnico_nombre'], 'Sin técnico')}',
+                      style: TextStyle(color: colors.onSurfaceVariant),
+                    ),
                     if (hasPayments)
-                      Text('Total ${_money(row['total'])} Bs · Saldo ${_money(row['saldo'])} Bs', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+                      Text(
+                        'Total ${_money(row['total'])} Bs · Saldo ${_money(row['saldo'])} Bs',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -360,7 +503,11 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
     );
   }
 
-  Widget _header(String title, String subtitle, {List<Widget> actions = const []}) {
+  Widget _header(
+    String title,
+    String subtitle, {
+    List<Widget> actions = const [],
+  }) {
     return Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -370,12 +517,21 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 4),
-            Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
-        if (actions.isNotEmpty) Wrap(spacing: 8, runSpacing: 8, children: actions),
+        if (actions.isNotEmpty)
+          Wrap(spacing: 8, runSpacing: 8, children: actions),
       ],
     );
   }
@@ -397,8 +553,19 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${value ?? 0}', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
-                      Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      Text(
+                        '${value ?? 0}',
+                        style: const TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -415,9 +582,18 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(_text(row['nombre'], 'Detalle')),
-        content: SizedBox(width: 620, child: SingleChildScrollView(child: _details(row))),
+        content: SizedBox(
+          width: 620,
+          child: SingleChildScrollView(child: _details(row)),
+        ),
         actions: [
-          if (canManage && const {'clientes', 'equipos', 'tecnicos', 'inventario'}.contains(module))
+          if (canManage &&
+              const {
+                'clientes',
+                'equipos',
+                'tecnicos',
+                'inventario',
+              }.contains(module))
             TextButton.icon(
               onPressed: () {
                 Navigator.pop(dialogContext);
@@ -426,7 +602,13 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
               icon: const Icon(Icons.delete_outline),
               label: const Text('Eliminar'),
             ),
-          if (canManage && const {'clientes', 'equipos', 'tecnicos', 'inventario'}.contains(module))
+          if (canManage &&
+              const {
+                'clientes',
+                'equipos',
+                'tecnicos',
+                'inventario',
+              }.contains(module))
             FilledButton.icon(
               onPressed: () {
                 Navigator.pop(dialogContext);
@@ -448,7 +630,10 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
               icon: const Icon(Icons.edit_outlined),
               label: const Text('Editar'),
             ),
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cerrar')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cerrar'),
+          ),
         ],
       ),
     );
@@ -486,7 +671,14 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_pretty(key), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text(
+                    _pretty(key),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   SelectableText('${row[key]}'),
                 ],
               ),
@@ -538,11 +730,16 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
 
   Future<void> _saveEquipment({Map<String, dynamic>? initial}) async {
     final clients = await _safe('clientes');
+    if (!mounted) return;
     if (clients.isEmpty) {
       _notice('Primero registra un cliente.');
       return;
     }
-    final draft = await showElectroEquipmentForm(context, clients: clients, initial: initial);
+    final draft = await showElectroEquipmentForm(
+      context,
+      clients: clients,
+      initial: initial,
+    );
     if (draft == null) return;
     await _mutate(() async {
       if (initial == null) {
@@ -557,7 +754,12 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
 
   Future<void> _saveTechnician({Map<String, dynamic>? initial}) async {
     final users = await _safe('usuarios-negocio');
-    final draft = await showElectroTechnicianForm(context, users: users, initial: initial);
+    if (!mounted) return;
+    final draft = await showElectroTechnicianForm(
+      context,
+      users: users,
+      initial: initial,
+    );
     if (draft == null) return;
     await _mutate(() async {
       if (initial == null) {
@@ -588,6 +790,7 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
     final clients = await _safe('clientes');
     final equipment = await _safe('equipos');
     final technicians = await _safe('tecnicos');
+    if (!mounted) return;
     if (clients.isEmpty) {
       _notice('Primero registra un cliente.');
       return;
@@ -636,10 +839,18 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Eliminar registro'),
-        content: const Text('VITI permitirá eliminarlo solo si no forma parte del historial. Cuando exista trazabilidad, debe conservarse o marcarse como inactivo.'),
+        content: const Text(
+          'VITI permitirá eliminarlo solo si no forma parte del historial. Cuando exista trazabilidad, debe conservarse o marcarse como inactivo.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Eliminar')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Eliminar'),
+          ),
         ],
       ),
     );
@@ -666,28 +877,33 @@ class _ElectrofrioAppScreenState extends State<ElectrofrioAppScreen> {
   }
 }
 
-Map<String, dynamic> _map(dynamic value) => value is Map<String, dynamic> ? value : <String, dynamic>{};
-List<Map<String, dynamic>> _items(dynamic value) =>
-    value is List ? value.whereType<Map<String, dynamic>>().toList(growable: false) : const <Map<String, dynamic>>[];
+Map<String, dynamic> _map(dynamic value) =>
+    value is Map<String, dynamic> ? value : <String, dynamic>{};
+List<Map<String, dynamic>> _items(dynamic value) => value is List
+    ? value.whereType<Map<String, dynamic>>().toList(growable: false)
+    : const <Map<String, dynamic>>[];
 int _id(dynamic value) => int.tryParse('${value ?? 0}') ?? 0;
 double _num(dynamic value) => double.tryParse('${value ?? 0}') ?? 0;
 String _money(dynamic value) => _num(value).toStringAsFixed(2);
 String _text(dynamic value, String fallback) =>
-    value == null || value.toString().trim().isEmpty ? fallback : value.toString();
-String _pretty(dynamic value) => _text(value, 'Sin estado').replaceAll('_', ' ');
+    value == null || value.toString().trim().isEmpty
+    ? fallback
+    : value.toString();
+String _pretty(dynamic value) =>
+    _text(value, 'Sin estado').replaceAll('_', ' ');
 String _stage(String value) => switch (value) {
-      'cita' => 'Cita',
-      'diagnostico' => 'Diagnóstico',
-      'propuesta' => 'Propuesta',
-      'servicio' => 'Servicio',
-      'cerrada' => 'Cerrada',
-      _ => _pretty(value),
-    };
+  'cita' => 'Cita',
+  'diagnostico' => 'Diagnóstico',
+  'propuesta' => 'Propuesta',
+  'servicio' => 'Servicio',
+  'cerrada' => 'Cerrada',
+  _ => _pretty(value),
+};
 IconData _stageIcon(String value) => switch (value) {
-      'cita' => Icons.event_outlined,
-      'diagnostico' => Icons.search_outlined,
-      'propuesta' => Icons.handshake_outlined,
-      'servicio' => Icons.home_repair_service_outlined,
-      'cerrada' => Icons.task_alt,
-      _ => Icons.assignment_outlined,
-    };
+  'cita' => Icons.event_outlined,
+  'diagnostico' => Icons.search_outlined,
+  'propuesta' => Icons.handshake_outlined,
+  'servicio' => Icons.home_repair_service_outlined,
+  'cerrada' => Icons.task_alt,
+  _ => Icons.assignment_outlined,
+};
