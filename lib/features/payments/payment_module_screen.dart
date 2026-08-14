@@ -163,7 +163,7 @@ class _PaymentModuleScreenState extends State<PaymentModuleScreen> {
     final state = '${project['estado_pago'] ?? 'pendiente'}';
     final agreed = _number(project['precio_acordado']);
     final paid = _number(project['pagado']);
-    final ratio = agreed <= 0 ? 0.0 : (paid / agreed).clamp(0, 1);
+    final ratio = agreed <= 0 ? 0.0 : (paid / agreed).clamp(0.0, 1.0).toDouble();
     return VitiPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
