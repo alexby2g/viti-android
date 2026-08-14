@@ -21,6 +21,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Keep repository analyzer policy unchanged
+        run: git checkout -- analysis_options.yaml
       - name: Apply targeted safety and file-picker fixes
         shell: bash
         run: |
@@ -76,7 +78,16 @@ jobs:
           PY
       - name: Apply Dart-supported fixes
         run: dart fix --apply
-      - name: Format only modified Dart files
+      - name: Format modified Dart files
+        shell: bash
+        run: |
+          mapfile -t files < <(git diff --name-only -- '*.dart')
+          if [ ${#files[@]} -gt 0 ]; then
+            dart format "${files[@]}"
+          fi
+      - name: Apply post-format Dart fixes
+        run: dart fix --apply
+      - name: Reformat modified Dart files
         shell: bash
         run: |
           mapfile -t files < <(git diff --name-only -- '*.dart')
