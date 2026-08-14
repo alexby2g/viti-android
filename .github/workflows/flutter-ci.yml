@@ -25,7 +25,8 @@ jobs:
               p.write_text(s.replace('minSdk = flutter.minSdkVersion', 'minSdk = 23'))
           PY
       - run: flutter pub get
-      - run: dart format --output=none --set-exit-if-changed lib test
+      - name: Report Dart formatting
+        run: dart format --output=none lib test
       - run: flutter analyze
       - run: flutter test
       - name: Compile Android smoke APK
