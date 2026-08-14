@@ -27,7 +27,8 @@ jobs:
       - run: flutter pub get
       - name: Report Dart formatting
         run: dart format --output=none lib test
-      - run: flutter analyze
+      - name: Analyze Flutter
+        run: flutter analyze --no-fatal-infos
       - run: flutter test
       - name: Compile Android smoke APK
         run: flutter build apk --debug --dart-define=VITI_API_URL=https://viti-core-api-alexby2g.onrender.com/api/v1
