@@ -1,0 +1,7 @@
+<resources>
+    <color name="viti_primary">#1565C0</color>
+    <color name="viti_accent">#FB8C00</color>
+    <color name="viti_dark">#071C3B</color>
+    <color name="viti_sidebar">#092B55</color>
+    <color name="white">#FFFFFF</color>
+</resources>
